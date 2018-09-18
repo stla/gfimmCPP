@@ -88,6 +88,16 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// testcbind
+Eigen::MatrixXd testcbind();
+RcppExport SEXP _gfimmCPP_testcbind() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(testcbind());
+    return rcpp_result_gen;
+END_RCPP
+}
 // temp
 int temp(unsigned n);
 RcppExport SEXP _gfimmCPP_temp(SEXP nSEXP) {
@@ -108,6 +118,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_gfimmCPP_whichLU", (DL_FUNC) &_gfimmCPP_whichLU, 3},
     {"_gfimmCPP_main", (DL_FUNC) &_gfimmCPP_main, 0},
     {"_gfimmCPP_ListOfGmatrices", (DL_FUNC) &_gfimmCPP_ListOfGmatrices, 3},
+    {"_gfimmCPP_testcbind", (DL_FUNC) &_gfimmCPP_testcbind, 0},
     {"_gfimmCPP_temp", (DL_FUNC) &_gfimmCPP_temp, 1},
     {NULL, NULL, 0}
 };

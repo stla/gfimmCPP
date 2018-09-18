@@ -62,7 +62,7 @@ Eigen::VectorXd whichLU(const Eigen::VectorXd & V, double L, double U){
     W(i) = V(whichl[i]);
   }
   return W;
-}
+} // pour fidVertex, retourner une struct, ou bien faire direct dans fidVertex
 
 // [[Rcpp::export]]
 int main(){
@@ -90,16 +90,37 @@ Eigen::MatrixXd gmatrix(size_t nrows, size_t ncols){
 // [[Rcpp::export]]
 std::vector<Eigen::MatrixXd> ListOfGmatrices(
     size_t nrows, size_t ncols, size_t nmatrices){
-  std::vector<Eigen::MatrixXd> matrices(2);
+  std::vector<Eigen::MatrixXd> matrices(nmatrices);
   for(unsigned i=0; i<nmatrices; i++){
     matrices[i] = gmatrix(nrows,ncols);
   }
+  matrices[1](0,0) = 99;
+  // Eigen::MatrixXd M = matrices[1];
+  // M(0,0) = 99;
+  // matrices[1] = M;
   for(unsigned i=0; i<nmatrices; i++){
     std::cout << matrices[i] << std::endl;
   }
   return matrices;
 }
 
+
+// [[Rcpp::export]]
+Eigen::MatrixXd testcbind(){
+  Eigen::MatrixXd M(3,0);
+  Eigen::MatrixXd A = gmatrix(3,1);
+  //Eigen::MatrixXd B(3,1);
+  //B << M,A;
+  //return B;
+  Eigen::MatrixXd B;
+  B = M;
+  M.conservativeResize(3, 1);
+  M << B,A;
+  B = M;
+  M.conservativeResize(3, 2);
+  M << B,A;
+  return M;
+}
 // [[Rcpp::export]]
 int temp(unsigned n){
   int x = 0;

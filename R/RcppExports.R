@@ -29,6 +29,10 @@ ListOfGmatrices <- function(nrows, ncols, nmatrices) {
     .Call('_gfimmCPP_ListOfGmatrices', PACKAGE = 'gfimmCPP', nrows, ncols, nmatrices)
 }
 
+testcbind <- function() {
+    .Call('_gfimmCPP_testcbind', PACKAGE = 'gfimmCPP')
+}
+
 temp <- function(n) {
     .Call('_gfimmCPP_temp', PACKAGE = 'gfimmCPP', n)
 }
