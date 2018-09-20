@@ -142,7 +142,7 @@ int temp(unsigned n){
 }
 
 // [[Rcpp::export]]
-Eigen::MatrixXi fidVertex(Eigen::MatrixXd VT1, Eigen::MatrixXi CC1, 
+Eigen::MatrixXd fidVertex(Eigen::MatrixXd VT1, Eigen::MatrixXi CC1, 
                           Eigen::VectorXd VTsum, double L, double U, 
                           size_t Dim, int n, int k){
   size_t p = VTsum.size();
@@ -169,6 +169,7 @@ Eigen::MatrixXi fidVertex(Eigen::MatrixXd VT1, Eigen::MatrixXi CC1,
   Eigen::MatrixXi CCtemp(Dim, 0);
   Eigen::MatrixXd VTtemp(Dim, 0);
   int vert = 0;
+  
   Eigen::MatrixXi CA(Dim, checkl.size());
   Eigen::MatrixXi CB(Dim, whichl.size());
   for(size_t i=0; i < Dim; i++){
@@ -230,10 +231,19 @@ Eigen::MatrixXi fidVertex(Eigen::MatrixXd VT1, Eigen::MatrixXi CC1,
           Eigen::MatrixXi M;
           M = CCtemp;
           CCtemp.conservativeResize(Eigen::NoChange, CCtemp.cols()+1);
-          CCtemp << M,inter;
+          CCtemp << M,inter; // rq: on pourrait seulement append la dernière colonne
+          double lambda = (L-VTsum_wl(ii))/(VTsum_cl(j)-VTsum_wl(ii));
+          Eigen::VectorXd vtnew(Dim);
+          for(size_t i=0; i<Dim; i++){
+            vtnew(i) = lambda*VT1_cl(i,j) + (1-lambda)*VT1_wl(i,ii);
+          }
+          Eigen::MatrixXd MM;
+          MM = VTtemp;
+          VTtemp.conservativeResize(Eigen::NoChange, VTtemp.cols()+1);
+          VTtemp << MM,vtnew;
         }
       }
     }
   }
-  return CCtemp;
+  return VTtemp;
 }
