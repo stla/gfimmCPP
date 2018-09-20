@@ -630,6 +630,7 @@ Rcpp::List gfimm_(Rcpp::NumericVector L, Rcpp::NumericVector U,
   std::vector<size_t> VC(N); // Number of vertices
   std::vector<Eigen::MatrixXi> CC(N); // constraints 
   std::vector<int> C; // initial constraints 
+  std::vector<int> K;
   std::vector<Eigen::MatrixXd> VT(N); // vertices
     
   //-------- SAMPLE ALL Z's / SET-UP WEIGHTS -----------------------------------
@@ -661,10 +662,17 @@ Rcpp::List gfimm_(Rcpp::NumericVector L, Rcpp::NumericVector U,
       }
       r = rankMatrix(AT);
       C.push_back((int)i);
+    }else{
+      K.push_back((int)i);
     }
   }
 
+  std::vector<int> K_start = C;
+  // Z[re-1] ...
   
-  return Rcpp::List::create(Rcpp::Named("VERTEX") = C,
+  //-------- FIND INITIAL VERTICES ---------------------------------------------
+  std::vector<std::vector<int>> USE = combinations(C,n);
+
+  return Rcpp::List::create(Rcpp::Named("VERTEX") = USE,
                             Rcpp::Named("WEIGHT") = AT);
 }
