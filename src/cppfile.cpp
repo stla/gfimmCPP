@@ -573,3 +573,19 @@ Eigen::VectorXi cppunique(Eigen::VectorXi v){
   Eigen::VectorXi out = v.topRows(size);
   return out;
 } 
+
+// [[Rcpp::export]]
+Rcpp::List gfimm_(Rcpp::NumericVector L, Rcpp::NumericVector U, 
+                  Eigen::MatrixXd FE, Eigen::MatrixXi RE, 
+                  Eigen::MatrixXi RE2, Rcpp::IntegerVector E,
+                  size_t N, size_t thresh){
+  size_t n = L.size();
+  size_t fe = FE.cols();
+  size_t re = RE2.cols();
+  size_t Dim = fe+re;
+  Rcpp::IntegerVector Esum = Rcpp::cumsum(E);
+  
+ 
+ return Rcpp::List::create(Rcpp::Named("VERTEX") = RE,
+                           Rcpp::Named("WEIGHT") = Esum);
+}
