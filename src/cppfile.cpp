@@ -553,5 +553,23 @@ Rcpp::List fidSample(Eigen::VectorXd VT2, Eigen::VectorXd VTsum,
   
   return Rcpp::List::create(Rcpp::Named("ZZ") = ZZ,
                             Rcpp::Named("wt") = wt);
-                            
 }
+
+// [[Rcpp::export]]
+Eigen::VectorXi cppunique(Eigen::VectorXi v){
+  int size = v.size();
+  for (int i = 0; i < size; i++) {
+    for (int j = i + 1; j < size;) {
+      if (v(j) == v(i)) {
+        for (int k = j; k+1 < size; k++) {
+          v(k) = v(k + 1);
+        }
+        size--;
+      } else {
+        j++;
+      }
+    }
+  }
+  Eigen::VectorXi out = v.topRows(size);
+  return out;
+} 
