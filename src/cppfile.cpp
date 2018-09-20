@@ -31,7 +31,7 @@ Eigen::MatrixXd tsolveAndMultiply(const Eigen::MatrixXd & A, const Eigen::Matrix
 } 
 
 // [[Rcpp::export]]
-Rcpp::List nullSpace(const Eigen::MatrixXd M){
+Rcpp::List nullSpace(const Eigen::MatrixXd M){ // avec QR: voir MASS::Null
   Eigen::FullPivLU<Eigen::MatrixXd> lu(M);
   Eigen::MatrixXd nspace = lu.kernel(); // not orthonormal
   int r = lu.rank();
@@ -39,6 +39,16 @@ Rcpp::List nullSpace(const Eigen::MatrixXd M){
                             Rcpp::Named("rank") = r);
 }
 
+// [[Rcpp::export]]
+Eigen::MatrixXd kernel(const Eigen::MatrixXd & M){ // ?
+  Eigen::MatrixXd Mt = M.transpose();
+  Eigen::ColPivHouseholderQR<Eigen::MatrixXd> qr1(Mt);
+  Eigen::HouseholderQR<Eigen::MatrixXd> qr2 = Mt.householderQr();
+  Eigen::MatrixXd Q = qr2.householderQ();
+  int r = qr1.rank();
+  return Q.rightCols(Q.cols()-r); 
+}
+    
 // [[Rcpp::export]]
 Rcpp::List QRdecomp(const Eigen::MatrixXd & M){ // for nrows >= ncols
   Eigen::HouseholderQR<Eigen::MatrixXd> qr = M.householderQr();
@@ -579,14 +589,37 @@ Eigen::VectorXi cppunique(Eigen::VectorXi v){
   return out;
 } 
 
+std::vector<std::vector<int>> cartesianProduct(const std::vector<std::vector<int>>& v){
+  std::vector<std::vector<int>> s = {{}};
+  for(auto& u : v){
+    std::vector<std::vector<int>> r;
+    for(auto& x : s){
+      for(auto y : u){
+        r.push_back(x);
+        r.back().push_back(y);
+      }
+    }
+    s.swap(r);
+  }
+  return s;
+}
+
+std::vector<std::vector<int>> combinations(std::vector<int> C, int n){
+  std::vector<std::vector<int>> sets;
+  for(size_t i=0; i<C.size(); i++){
+    sets.push_back({C[i],C[i]+n});
+  }
+  return cartesianProduct(sets);
+}
+
 // [[Rcpp::export]]
 Rcpp::List gfimm_(Rcpp::NumericVector L, Rcpp::NumericVector U, 
-                  Eigen::MatrixXd FE, Eigen::MatrixXi RE, 
+                  Eigen::MatrixXd FE, Eigen::MatrixXd RE, 
                   Eigen::MatrixXi RE2, Rcpp::IntegerVector E,
                   size_t N, size_t thresh){
-  size_t n = L.size();
+  const size_t n = L.size();
   size_t fe = FE.cols();
-  size_t re = RE2.cols();
+  const size_t re = RE2.cols();
   size_t Dim = fe+re;
   Rcpp::IntegerVector Esum = Rcpp::cumsum(E);
   
@@ -599,7 +632,21 @@ Rcpp::List gfimm_(Rcpp::NumericVector L, Rcpp::NumericVector U,
   std::vector<int> C; // initial constraints 
   std::vector<Eigen::MatrixXd> VT(N); // vertices
     
- 
-  return Rcpp::List::create(Rcpp::Named("VERTEX") = RE,
+  //-------- SAMPLE ALL Z's / SET-UP WEIGHTS -----------------------------------
+  //A <- array(NA_real_, dim = c(n, re, N)) 
+  std::vector<Eigen::MatrixXd> A(N);
+  for(size_t j=0; j<re; j++){  
+    Z[j] = gmatrix(E(j),N); 
+    weight[j] = Eigen::MatrixXd::Ones(E(j),N);
+    Eigen::MatrixXd M = RE.block(0, Esum(j)-E(j), n, E(j)) * Z[j];
+    for(size_t k=0; k<N; k++){
+      A[k].resize(n,re);
+      for(size_t i=0; i<n; i++){
+        A[k](i,j) = M(i,k);
+      }
+    } 
+  }      
+    
+  return Rcpp::List::create(Rcpp::Named("VERTEX") = A,
                             Rcpp::Named("WEIGHT") = Esum);
 }
