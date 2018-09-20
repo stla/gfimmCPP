@@ -633,7 +633,6 @@ Rcpp::List gfimm_(Rcpp::NumericVector L, Rcpp::NumericVector U,
   std::vector<Eigen::MatrixXd> VT(N); // vertices
     
   //-------- SAMPLE ALL Z's / SET-UP WEIGHTS -----------------------------------
-  //A <- array(NA_real_, dim = c(n, re, N)) 
   std::vector<Eigen::MatrixXd> A(N);
   for(size_t j=0; j<re; j++){  
     Z[j] = gmatrix(E(j),N); 
@@ -646,7 +645,26 @@ Rcpp::List gfimm_(Rcpp::NumericVector L, Rcpp::NumericVector U,
       }
     } 
   }      
-    
-  return Rcpp::List::create(Rcpp::Named("VERTEX") = A,
-                            Rcpp::Named("WEIGHT") = Esum);
+  
+  Eigen::MatrixXd AA(n, Dim);
+  AA << FE,A[1];
+  Eigen::MatrixXd AT(0, Dim);
+  //Eigen::MatrixXd Atemp(0, Dim);
+  int r = 0;
+  for(size_t i=0; i<n; i++){
+    Eigen::MatrixXd Atemp(AT.rows()+1,Dim);
+    Atemp << AT, AA.row(i);
+    if(rankMatrix(Atemp) > r){
+      AT.conservativeResize(AT.rows()+1,Eigen::NoChange);
+      for(size_t j=0; j<Dim; j++){
+        AT(AT.rows()-1,j) = AA(i,j);
+      }
+      r = rankMatrix(AT);
+      C.push_back((int)i);
+    }
+  }
+
+  
+  return Rcpp::List::create(Rcpp::Named("VERTEX") = C,
+                            Rcpp::Named("WEIGHT") = AT);
 }
