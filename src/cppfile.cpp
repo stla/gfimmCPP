@@ -4,6 +4,7 @@
 #include <RcppEigen.h>
 #include <random>
 #include <vector>
+#include <limits>
 // via the depends attribute we tell Rcpp to create hooks for
 // RcppEigen so that the build process will know what to do
 //
@@ -350,4 +351,69 @@ Rcpp::List fidVertex(Eigen::MatrixXd VT1, Eigen::MatrixXi CC1,
   return Rcpp::List::create(Rcpp::Named("CCtemp") = CCtemp,
                             Rcpp::Named("VTtemp") = VTtemp,
                             Rcpp::Named("vert") = vert);
+}
+
+
+int sgn(double x){
+  return (0 < x) - (x < 0);
+}
+
+// [[Rcpp::export]]
+Rcpp::List fidSample(Eigen::VectorXd VT2, Eigen::VectorXd VTsum, 
+                     double L, double U){
+  size_t p = VTsum.size(); // = VT2.size()
+  std::vector<size_t> high, low, zero, zeronot;
+  size_t lhigh=0, llow=0, lzero=0, lzeronot;
+  for(size_t i=0; i<p; i++){
+    if(VT2(i)==0){
+      lzero += 1;
+      zero.push_back(i);
+    }else{
+      zeronot.push_back(i);
+      if(VT2(i)>0){
+        lhigh += 1;
+        high.push_back(i);
+      }else{
+        llow += 1;
+        low.push_back(i);
+      }
+    }
+  }
+  lzeronot = p-lzero;
+  double MAX, MIN, temp;
+  double infty = std::numeric_limits<double>::infinity();
+  if((lhigh>0 && llow>0) || lzero>0){
+    std::vector<int> UU(p);
+    std::vector<int> LL(p);
+    std::vector<int> SS(p);
+    for(size_t i=0; i<p; i++){
+      UU[i] = sgn(U-VTsum(i));
+      LL[i] = sgn(L-VTsum(i));
+      SS[i] = sgn(VT2(i));
+    }
+    if(lzero==p){
+      MAX = infty;
+      MIN = -infty;
+      bool anyUUpos = false, anyLLneg = false;
+      size_t i = 0;
+      while(i<p && !anyUUpos){
+        if(UU[i]>0){
+          anyUUpos = true;
+        }
+        i += 1;
+      }
+      i = 0;
+      while(i<p && !anyLLneg){
+        if(LL[i]<0){
+          anyLLneg = true;
+        }
+        i += 1;
+      }
+      temp = anyUUpos && anyLLneg;
+    }
+  }
+  
+  return Rcpp::List::create(Rcpp::Named("ZZ") = llow,
+                            Rcpp::Named("wt") = lhigh);
+                            
 }
