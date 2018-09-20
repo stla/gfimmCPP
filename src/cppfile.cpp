@@ -5,6 +5,8 @@
 #include <random>
 #include <vector>
 #include <limits>
+#include <algorithm>    // std::max
+
 // via the depends attribute we tell Rcpp to create hooks for
 // RcppEigen so that the build process will know what to do
 //
@@ -358,9 +360,19 @@ int sgn(double x){
   return (0 < x) - (x < 0);
 }
 
+//const long double PI = 3.141592653589793238L;
+// const double PI = 3.141592653589793; already defined
+
+std::uniform_real_distribution<double> runif(0.0,1.0);
+
+double approx(double x, unsigned n){
+  return round(x * pow(10, n)) / pow(10, n);
+}
+
 // [[Rcpp::export]]
 Rcpp::List fidSample(Eigen::VectorXd VT2, Eigen::VectorXd VTsum, 
                      double L, double U){
+  double ZZ, wt; // outputs
   size_t p = VTsum.size(); // = VT2.size()
   std::vector<size_t> high, low, zero, zeronot;
   size_t lhigh=0, llow=0, lzero=0, lzeronot;
@@ -380,9 +392,10 @@ Rcpp::List fidSample(Eigen::VectorXd VT2, Eigen::VectorXd VTsum,
     }
   }
   lzeronot = p-lzero;
-  double MAX, MIN, temp;
+  double MAX, MIN;
   double infty = std::numeric_limits<double>::infinity();
   if((lhigh>0 && llow>0) || lzero>0){
+    double temp;
     std::vector<int> UU(p);
     std::vector<int> LL(p);
     std::vector<int> SS(p);
@@ -410,10 +423,135 @@ Rcpp::List fidSample(Eigen::VectorXd VT2, Eigen::VectorXd VTsum,
         i += 1;
       }
       temp = anyUUpos && anyLLneg;
+    }else{
+      size_t i = 0;
+      bool c1 = true, c2 = true, d1 = true, d2 = true;
+      while(i < lzero && c1){
+        if(UU[zero[i]]==-1 || LL[zero[i]]==-1){
+          c1 = false;
+        }
+        i += 1;
+      }
+      i = 0;
+      while(i < lzero && c2){
+        if(UU[zero[i]]==1 || LL[zero[i]]==1){
+          c2 = false;
+        }
+        i += 1;
+      }
+      i = 0;
+      while(i < p && d1){
+        if(SS[i] == -1){
+          d1 = false;
+        }
+        i += 1;
+      }
+      i = 0;
+      while(i < p && d2){
+        if(SS[i] == 1){
+          d1 = false;
+        }
+        i += 1;
+      }
+      if((d1 && c1) || (d2 && c2)){
+        MAX = infty;
+        MIN = infty;
+        for(size_t i=0; i<lzeronot; i++){
+          size_t zni = zeronot[i];
+          MIN = std::min(MIN, std::min((U-VTsum(zni))/VT2(zni),(L-VTsum(zni))/VT2(zni)));
+        }
+        temp = 1-(atan(MIN)/PI+0.5);
+      }else if((d2 && c1) || (d1 && c2)){
+        MIN = -infty;
+        MAX = -infty;
+        for(size_t i=0; i<lzeronot; i++){
+          size_t zni = zeronot[i];
+          MAX = std::max(MAX, std::max((U-VTsum(zni))/VT2(zni),(L-VTsum(zni))/VT2(zni)));
+        }
+        temp = atan(MAX)/PI+0.5; 				
+      }else{
+        double Hmax = -infty;
+        double Hmin = infty;
+        for(size_t i=0; i<lhigh; i++){
+          size_t hi = high[i];
+          double xu = (U-VTsum(hi))/VT2(hi);
+          double xl = (L-VTsum(hi))/VT2(hi);
+          Hmax = std::max(Hmax, std::max(xu,xl));
+          Hmin = std::min(Hmin, std::min(xu,xl));
+        }
+        double Lmax = -infty;
+        double Lmin = infty;
+        for(size_t i=0; i<llow; i++){
+          size_t li = low[i];
+          double xu = (U-VTsum(li))/VT2(li);
+          double xl = (L-VTsum(li))/VT2(li);
+          Lmax = std::max(Lmax, std::max(xu,xl));
+          Lmin = std::min(Lmin, std::min(xu,xl));
+        }
+        double bpos, tpos, bneg, tneg;
+        if(approx(Lmin-Hmax,12)>=0){
+          bpos = -infty;
+          tpos = Hmax;
+          bneg = Lmin;
+          tneg = infty;
+        }else if(approx(Hmin-Lmax,12)>=0){
+          bpos = Hmin;
+          tpos = infty;
+          bneg = -infty;
+          tneg = Lmax;
+        }else{
+          bpos = -infty;
+          tpos = infty;
+          bneg = -infty;
+          tneg = infty;
+        }
+        double Pprob, Nprob;
+        if(tpos==infty){
+          Pprob = 1-(atan(bpos)/PI+0.5);
+        }else{
+          Pprob = atan(tpos)/PI+0.5;
+        }
+        if(tneg==infty){
+          Nprob = 1-(atan(bneg)/PI+0.5);
+        }else{
+          Nprob = atan(tneg)/PI+0.5;
+        }
+        temp = Pprob+Nprob;
+        Pprob = Pprob/temp;
+        Nprob = 1-Pprob;
+        if(runif(generator) <= Nprob){
+          MIN = bneg;
+          MAX = tneg;
+        }else{
+          MIN = bpos;
+          MAX = tpos;
+        }
+      }
     }
+    double y = atan(MAX)/PI+0.5;
+    double x = atan(MIN)/PI+0.5;
+    double u = x+(y-x)*runif(generator);
+    ZZ = tan(PI*(u-0.5));
+    double ZZ2 = ZZ*ZZ;
+    wt = exp(-ZZ2/2)*(1+ZZ2)*temp;
+  }else{
+    MAX = -infty;
+    MIN = infty;
+    for(size_t i=0; i<p; i++){
+      double xu = (U-VTsum(i))/VT2(i);
+      double xl = (L-VTsum(i))/VT2(i);
+      MAX = std::max(MAX, std::max(xu,xl));
+      MIN = std::min(MIN, std::min(xu,xl));
+    }
+    double y = atan(MAX)/PI+0.5; 
+    double x = atan(MIN)/PI+0.5;
+    double u = x + (y-x)*runif(generator);
+    ZZ = tan(PI*(u-0.5));
+    double ZZ2 = ZZ*ZZ;
+    wt = exp(-ZZ2/2)*(1+ZZ2)*(y-x);
   }
   
-  return Rcpp::List::create(Rcpp::Named("ZZ") = llow,
-                            Rcpp::Named("wt") = lhigh);
+  return Rcpp::List::create(Rcpp::Named("ZZ") = ZZ,
+                            Rcpp::Named("wt") = wt);
                             
 }
