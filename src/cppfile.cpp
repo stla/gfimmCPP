@@ -217,30 +217,46 @@ Eigen::MatrixXd fidVertex(Eigen::MatrixXd VT1, Eigen::MatrixXi CC1,
         }
         if(colSum == Dim-1){
           vert += 1;
-          std::vector<int> which1;
+          // std::vector<int> which1;
+          // for(size_t i=0; i<Dim; i++){
+          //   if(INT2(i,j)==1){
+          //     which1.push_back(CB(i,ii));
+          //   }
+          // }
+          std::vector<int> inter(Dim);
+          size_t m = 0;
           for(size_t i=0; i<Dim; i++){
             if(INT2(i,j)==1){
-              which1.push_back(CB(i,ii));
+              inter[m] = CB(i,ii);
+              m += 1;
             }
           }
-          Eigen::VectorXi inter(which1.size()+1);
-          for(size_t i=0; i<which1.size(); i++){
-            inter(i) = which1[i];
-          }
-          inter(which1.size()) = k+n;
-          Eigen::MatrixXi M;
-          M = CCtemp;
+          inter[Dim-1] = k+n;
+          // Eigen::VectorXi inter(which1.size()+1);
+          // for(size_t i=0; i<which1.size(); i++){
+          //   inter(i) = which1[i]; // ? which1.size() = Dim-1 ?
+          // }
+          // inter(which1.size()) = k+n;
+          // Eigen::MatrixXi M;
+          // M = CCtemp;
           CCtemp.conservativeResize(Eigen::NoChange, CCtemp.cols()+1);
-          CCtemp << M,inter; // rq: on pourrait seulement append la dernière colonne
-          double lambda = (L-VTsum_wl(ii))/(VTsum_cl(j)-VTsum_wl(ii));
-          Eigen::VectorXd vtnew(Dim);
+          // CCtemp << M,inter; // rq: on pourrait seulement append la dernière colonne
           for(size_t i=0; i<Dim; i++){
-            vtnew(i) = lambda*VT1_cl(i,j) + (1-lambda)*VT1_wl(i,ii);
+            CCtemp(i,CCtemp.cols()-1) = inter[i];
           }
-          Eigen::MatrixXd MM;
-          MM = VTtemp;
+          double lambda = (L-VTsum_wl(ii))/(VTsum_cl(j)-VTsum_wl(ii));
+          // Eigen::VectorXd vtnew(Dim);
+          // for(size_t i=0; i<Dim; i++){
+          //   vtnew(i) = lambda*VT1_cl(i,j) + (1-lambda)*VT1_wl(i,ii);
+          // }
+          // Eigen::MatrixXd MM;
+          // MM = VTtemp;
+          // VTtemp.conservativeResize(Eigen::NoChange, VTtemp.cols()+1);
+          // VTtemp << MM,vtnew;
           VTtemp.conservativeResize(Eigen::NoChange, VTtemp.cols()+1);
-          VTtemp << MM,vtnew;
+          for(size_t i=0; i<Dim; i++){
+            VTtemp(i,VTtemp.cols()-1) = lambda*VT1_cl(i,j) + (1-lambda)*VT1_wl(i,ii);
+          }
         }
       }
     }
