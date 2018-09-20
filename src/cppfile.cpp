@@ -142,7 +142,7 @@ int temp(unsigned n){
 }
 
 // [[Rcpp::export]]
-Eigen::MatrixXi fidVertex(Eigen::MatrixXd VT1, Eigen::MatrixXi CC1, 
+Rcpp::List fidVertex(Eigen::MatrixXd VT1, Eigen::MatrixXi CC1, 
                           Eigen::VectorXd VTsum, double L, double U, 
                           size_t Dim, int n, int k){
   size_t p = VTsum.size();
@@ -347,5 +347,7 @@ Eigen::MatrixXi fidVertex(Eigen::MatrixXd VT1, Eigen::MatrixXi CC1,
     }
   }
   
-  return CCtemp;
+  return Rcpp::List::create(Rcpp::Named("CCtemp") = CCtemp,
+                            Rcpp::Named("VTtemp") = VTtemp,
+                            Rcpp::Named("vert") = vert);
 }

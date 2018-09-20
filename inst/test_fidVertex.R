@@ -1,5 +1,5 @@
 set.seed(123) # 3141592 for p=128 - not sure
-p <- 128L
+p <- 16L
 Dim <- 3L
 vt1 <- matrix(rnorm(Dim*p), nrow=Dim) -> VT1
 cc1 <- matrix(sample.int(p, Dim*p, replace=TRUE), nrow=Dim) -> CC1
@@ -10,6 +10,7 @@ n <- Dim*p
 
 x <- fidVertex(VT1, CC1, VTsum, L, U, Dim, n, k)
 
-xx <- gfimm:::fid_vertex(VT1, CC1, VTsum, U, L, Dim, k, n)$CCtemp
+xx <- gfimm:::fid_vertex(VT1, CC1, VTsum, U, L, Dim, k, n)
 
-all(x==xx)
+all(x$CCtemp == xx$CCtemp)
+all(x$VTtemp == xx$VTtemp)
