@@ -49,6 +49,11 @@ Rcpp::List QRdecomp(const Eigen::MatrixXd & M){ // for nrows >= ncols
   return Rcpp::List::create(Rcpp::Named("Q") = Q,
                             Rcpp::Named("R") = R);
 }
+
+int rankMatrix(const Eigen::MatrixXd & M){
+  Eigen::ColPivHouseholderQR<Eigen::MatrixXd> qr(M);
+  return qr.rank();
+}
   
 // [[Rcpp::export]]
 Eigen::VectorXd whichLU(const Eigen::VectorXd & V, double L, double U){
@@ -585,7 +590,16 @@ Rcpp::List gfimm_(Rcpp::NumericVector L, Rcpp::NumericVector U,
   size_t Dim = fe+re;
   Rcpp::IntegerVector Esum = Rcpp::cumsum(E);
   
+  //-------- SET-UP ALGORITHM OBJECTS ------------------------------------------
+  std::vector<Eigen::MatrixXd> Z(re);
+  std::vector<Eigen::MatrixXd> weight(re);
+  Rcpp::IntegerVector ESS((int)N,(int)n);
+  std::vector<size_t> VC(N); // Number of vertices
+  std::vector<Eigen::MatrixXi> CC(N); // constraints 
+  std::vector<int> C; // initial constraints 
+  std::vector<Eigen::MatrixXd> VT(N); // vertices
+    
  
- return Rcpp::List::create(Rcpp::Named("VERTEX") = RE,
-                           Rcpp::Named("WEIGHT") = Esum);
+  return Rcpp::List::create(Rcpp::Named("VERTEX") = RE,
+                            Rcpp::Named("WEIGHT") = Esum);
 }
