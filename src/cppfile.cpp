@@ -49,12 +49,22 @@ Rcpp::List QRdecomp(const Eigen::MatrixXd & M){ // for nrows >= ncols
   
 // [[Rcpp::export]]
 Eigen::VectorXd whichLU(const Eigen::VectorXd & V, double L, double U){
-  std::vector<size_t> whichl, checkl, whichu, checku;
+  std::vector<size_t> whichl, checkl, whichu, checku, both;
   for(size_t i=0; i<V.size(); i++){
-    if(V(i) <= L){
+    bool b = false;
+    if(V(i) >= L){
       whichl.push_back(i);
+      b = true;
     }else{
       checkl.push_back(i);
+    }
+    if(V(i) <= U){
+      whichu.push_back(i);
+      if(b){
+        both.push_back(i);
+      }
+    }else{
+      checku.push_back(i);
     }
   }
   Eigen::VectorXd W(whichl.size());
@@ -114,13 +124,14 @@ Eigen::MatrixXd testcbind(){
   //return B;
   Eigen::MatrixXd B;
   B = M;
-  M.conservativeResize(3, 1);
+  M.conservativeResize(Eigen::NoChange, 1);
   M << B,A;
   B = M;
-  M.conservativeResize(3, 2);
+  M.conservativeResize(Eigen::NoChange, 2);
   M << B,A;
   return M;
 }
+
 // [[Rcpp::export]]
 int temp(unsigned n){
   int x = 0;
@@ -128,4 +139,101 @@ int temp(unsigned n){
     x = x+1;
   }
   return x;
+}
+
+// [[Rcpp::export]]
+Eigen::MatrixXi fidVertex(Eigen::MatrixXd VT1, Eigen::MatrixXi CC1, 
+                          Eigen::VectorXd VTsum, double L, double U, 
+                          size_t Dim, int n, int k){
+  size_t p = VTsum.size();
+  std::vector<size_t> whichl, checkl, whichu, checku, both;
+  for(size_t i=0; i<VTsum.size(); i++){
+    bool b = false;
+    if(VTsum(i) >= L){
+      whichl.push_back(i);
+      b = true;
+    }else{
+      checkl.push_back(i);
+    }
+    if(VTsum(i) <= U){
+      whichu.push_back(i);
+      if(b){
+        both.push_back(i);
+      }
+    }else{
+      checku.push_back(i);
+    }
+  }
+  size_t lcheckl = checkl.size();
+  size_t lwhichl = whichl.size();
+  Eigen::MatrixXi CCtemp(Dim, 0);
+  Eigen::MatrixXd VTtemp(Dim, 0);
+  int vert = 0;
+  Eigen::MatrixXi CA(Dim, checkl.size());
+  Eigen::MatrixXi CB(Dim, whichl.size());
+  for(size_t i=0; i < Dim; i++){
+    for(size_t j=0; j < lcheckl; j++){
+      CA(i,j) = CC1(i, checkl[j]);
+    }
+    for(size_t j=0; j < whichl.size(); j++){
+      CB(i,j) = CC1(i, whichl[j]);
+    }
+  }
+  if(lcheckl < p){
+    Eigen::MatrixXi INT = Eigen::MatrixXi::Zero(2*n,lcheckl);
+    for(size_t ll=0; ll<lcheckl; ll++){
+      for(size_t i=0; i<Dim; i++){
+        INT(CA(i,ll),ll) = 1;
+      }
+    }
+    Eigen::VectorXd VTsum_cl(lcheckl);
+    Eigen::VectorXd VTsum_wl(lwhichl);
+    Eigen::MatrixXd VT1_cl(Dim, lcheckl);
+    Eigen::MatrixXd VT1_wl(Dim, lwhichl);
+    for(size_t i=0; i<lcheckl; i++){
+      VTsum_cl(i) = VTsum(checkl[i]);
+      for(size_t j=0; j<Dim; j++){
+        VT1_cl(j,i) = VT1(j,checkl[i]);
+      }
+    }
+    for(size_t i=0; i<lwhichl; i++){
+      VTsum_wl(i) = VTsum(whichl[i]);
+      for(size_t j=0; j<Dim; j++){
+        VT1_wl(j,i) = VT1(j,whichl[i]);
+      }
+    }
+    for(size_t ii=0; ii<p-lcheckl; ii++){
+      Eigen::MatrixXi INT2(Dim, lcheckl);
+      for(size_t i=0; i<Dim; i++){
+        for(size_t j=0; j<lcheckl; j++){
+          INT2(i,j) = INT(CB(i,ii),j);
+        }
+      }
+      for(size_t j=0; j<lcheckl; j++){
+        int colSum = 0;
+        for(size_t i=0; i<Dim; i++){
+          colSum += INT2(i,j);
+        }
+        if(colSum == Dim-1){
+          vert += 1;
+          std::vector<int> which1;
+          for(size_t i=0; i<Dim; i++){
+            if(INT2(i,j)==1){
+              which1.push_back(CB(i,ii));
+            }
+          }
+          Eigen::VectorXi inter(which1.size()+1);
+          for(size_t i=0; i<which1.size(); i++){
+            inter(i) = which1[i];
+          }
+          inter(which1.size()) = k+n;
+          Eigen::MatrixXi M;
+          M = CCtemp;
+          CCtemp.conservativeResize(Eigen::NoChange, CCtemp.cols()+1);
+          CCtemp << M,inter;
+        }
+      }
+    }
+  }
+  return CCtemp;
 }
