@@ -142,7 +142,7 @@ int temp(unsigned n){
 }
 
 // [[Rcpp::export]]
-Eigen::MatrixXd fidVertex(Eigen::MatrixXd VT1, Eigen::MatrixXi CC1, 
+Eigen::MatrixXi fidVertex(Eigen::MatrixXd VT1, Eigen::MatrixXi CC1, 
                           Eigen::VectorXd VTsum, double L, double U, 
                           size_t Dim, int n, int k){
   size_t p = VTsum.size();
@@ -164,23 +164,23 @@ Eigen::MatrixXd fidVertex(Eigen::MatrixXd VT1, Eigen::MatrixXi CC1,
       checku.push_back(i);
     }
   }
-  size_t lcheckl = checkl.size();
-  size_t lwhichl = whichl.size();
   Eigen::MatrixXi CCtemp(Dim, 0);
   Eigen::MatrixXd VTtemp(Dim, 0);
   int vert = 0;
-  
-  Eigen::MatrixXi CA(Dim, checkl.size());
-  Eigen::MatrixXi CB(Dim, whichl.size());
-  for(size_t i=0; i < Dim; i++){
-    for(size_t j=0; j < lcheckl; j++){
-      CA(i,j) = CC1(i, checkl[j]);
-    }
-    for(size_t j=0; j < whichl.size(); j++){
-      CB(i,j) = CC1(i, whichl[j]);
-    }
-  }
+
+  size_t lcheckl = checkl.size();
+  size_t lwhichl = whichl.size();
   if(lcheckl < p){
+    Eigen::MatrixXi CA(Dim, lcheckl); 
+    Eigen::MatrixXi CB(Dim, lwhichl);
+    for(size_t i=0; i < Dim; i++){
+      for(size_t j=0; j < lcheckl; j++){
+        CA(i,j) = CC1(i, checkl[j]);
+      }
+      for(size_t j=0; j < lwhichl; j++){
+        CB(i,j) = CC1(i, whichl[j]);
+      }
+    }
     Eigen::MatrixXi INT = Eigen::MatrixXi::Zero(2*n,lcheckl);
     for(size_t ll=0; ll<lcheckl; ll++){
       for(size_t i=0; i<Dim; i++){
@@ -239,10 +239,10 @@ Eigen::MatrixXd fidVertex(Eigen::MatrixXd VT1, Eigen::MatrixXi CC1,
           // inter(which1.size()) = k+n;
           // Eigen::MatrixXi M;
           // M = CCtemp;
-          CCtemp.conservativeResize(Eigen::NoChange, CCtemp.cols()+1);
+          CCtemp.conservativeResize(Eigen::NoChange, vert); 
           // CCtemp << M,inter; // rq: on pourrait seulement append la dernière colonne
           for(size_t i=0; i<Dim; i++){
-            CCtemp(i,CCtemp.cols()-1) = inter[i];
+            CCtemp(i,vert-1) = inter[i]; 
           }
           double lambda = (L-VTsum_wl(ii))/(VTsum_cl(j)-VTsum_wl(ii));
           // Eigen::VectorXd vtnew(Dim);
@@ -253,13 +253,99 @@ Eigen::MatrixXd fidVertex(Eigen::MatrixXd VT1, Eigen::MatrixXi CC1,
           // MM = VTtemp;
           // VTtemp.conservativeResize(Eigen::NoChange, VTtemp.cols()+1);
           // VTtemp << MM,vtnew;
-          VTtemp.conservativeResize(Eigen::NoChange, VTtemp.cols()+1);
+          VTtemp.conservativeResize(Eigen::NoChange, vert);
           for(size_t i=0; i<Dim; i++){
-            VTtemp(i,VTtemp.cols()-1) = lambda*VT1_cl(i,j) + (1-lambda)*VT1_wl(i,ii);
+            VTtemp(i,vert-1) = lambda*VT1_cl(i,j) + (1-lambda)*VT1_wl(i,ii);
           }
         }
       }
     }
   }
-  return VTtemp;
+  
+  size_t lchecku = checku.size();
+  size_t lwhichu = whichu.size();
+  if(lchecku < p){
+    Eigen::MatrixXi CA(Dim, lchecku); 
+    Eigen::MatrixXi CB(Dim, lwhichu);
+    for(size_t i=0; i < Dim; i++){
+      for(size_t j=0; j < lchecku; j++){
+        CA(i,j) = CC1(i, checku[j]);
+      }
+      for(size_t j=0; j < lwhichu; j++){
+        CB(i,j) = CC1(i, whichu[j]);
+      }
+    }
+    Eigen::MatrixXi INT = Eigen::MatrixXi::Zero(2*n,lchecku);
+    for(size_t ll=0; ll<lchecku; ll++){
+      for(size_t i=0; i<Dim; i++){
+        INT(CA(i,ll),ll) = 1;
+      }
+    }
+    Eigen::VectorXd VTsum_cu(lchecku);
+    Eigen::VectorXd VTsum_wu(lwhichu);
+    Eigen::MatrixXd VT1_cu(Dim, lchecku);
+    Eigen::MatrixXd VT1_wu(Dim, lwhichu);
+    for(size_t i=0; i<lchecku; i++){
+      VTsum_cu(i) = VTsum(checku[i]);
+      for(size_t j=0; j<Dim; j++){
+        VT1_cu(j,i) = VT1(j,checku[i]);
+      }
+    }
+    for(size_t i=0; i<lwhichu; i++){
+      VTsum_wu(i) = VTsum(whichu[i]);
+      for(size_t j=0; j<Dim; j++){
+        VT1_wu(j,i) = VT1(j,whichu[i]);
+      }
+    }
+    for(size_t ii=0; ii<p-lchecku; ii++){
+      Eigen::MatrixXi INT2(Dim, lchecku);
+      for(size_t i=0; i<Dim; i++){
+        for(size_t j=0; j<lchecku; j++){
+          INT2(i,j) = INT(CB(i,ii),j);
+        }
+      }
+      for(size_t j=0; j<lchecku; j++){
+        int colSum = 0;
+        for(size_t i=0; i<Dim; i++){
+          colSum += INT2(i,j);
+        }
+        if(colSum == Dim-1){
+          vert += 1;
+          std::vector<int> inter(Dim);
+          size_t m = 0;
+          for(size_t i=0; i<Dim; i++){
+            if(INT2(i,j)==1){
+              inter[m] = CB(i,ii);
+              m += 1;
+            }
+          }
+          inter[Dim-1] = k;
+          CCtemp.conservativeResize(Eigen::NoChange, vert); 
+          for(size_t i=0; i<Dim; i++){
+            CCtemp(i,vert-1) = inter[i]; 
+          }
+          double lambda = (U-VTsum_wu(ii))/(VTsum_cu(j)-VTsum_wu(ii));
+          VTtemp.conservativeResize(Eigen::NoChange, vert);
+          for(size_t i=0; i<Dim; i++){
+            VTtemp(i,vert-1) = lambda*VT1_cu(i,j) + (1-lambda)*VT1_wu(i,ii);
+          }
+        }
+      }
+    }
+  }
+  
+  size_t lboth = both.size();
+  if(lboth>0){
+    for(size_t j=0; j<lboth; j++){
+      vert += 1;
+      CCtemp.conservativeResize(Eigen::NoChange, vert); 
+      VTtemp.conservativeResize(Eigen::NoChange, vert); 
+      for(size_t i=0; i<Dim; i++){
+        CCtemp(i,vert-1) = CC1(i,both[j]);
+        VTtemp(i,vert-1) = VT1(i,both[j]);
+      }
+    }
+  }
+  
+  return CCtemp;
 }

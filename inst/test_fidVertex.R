@@ -7,6 +7,9 @@ vtsum <- rnorm(p) -> VTsum
 U <- 2; L <- -2
 k <- 1L
 n <- Dim*p
-fidVertex(VT1, CC1, VTsum, L, U, Dim, n, k)
 
-gfimm:::fid_vertex(VT1, CC1, VTsum, U, L, Dim, k, n)
+x <- fidVertex(VT1, CC1, VTsum, L, U, Dim, n, k)
+
+xx <- gfimm:::fid_vertex(VT1, CC1, VTsum, U, L, Dim, k, n)$CCtemp
+
+all(x==xx)
