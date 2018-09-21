@@ -973,7 +973,29 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
                   }
                   Eigen::MatrixXd MAT(JJ.size(),((int)Dim)-1+CO2.cols());
                   MAT << -XX, CO2;
-                  
+                  Rcpp::Rcout << "ok" << std::endl;
+                  Rcpp::List kern = nullSpace(MAT);
+                  int rk = kern["rank"];
+                  Rcpp::Rcout << "ok0" << std::endl;
+                  if(rk < MAT.cols()){
+                    Rcpp::Rcout << "ok1" << std::endl;
+                    Eigen::MatrixXd NUL = kern["kernel"];
+                    Eigen::MatrixXd n1 = NUL.topRows(NUL.rows()-CO2.cols());
+                    Eigen::MatrixXd n2 = NUL.bottomRows(CO2.cols());
+                    Rcpp::Rcout << "ok2" << std::endl;
+                    Rcpp::List QR = QRdecomp(n2);
+                    Rcpp::Rcout << "ok3" << std::endl;
+                    Eigen::MatrixXd O2 = QR["Q"];
+                    Eigen::MatrixXd R = QR["R"];
+                    // Eigen::MatrixXd O1 = tsolveAndMultiply(R, n1);
+                    // Eigen::VectorXd a = O2.transpose() * Z1;
+                    // Eigen::VectorXd tau_ = Z1 - (O2 * a);
+                    // double b = sqrt(tau_.dot(tau_));
+                    // Eigen::VectorXd tau = tau/b;
+
+                  }
+                    
+
                 }
               }
             }
