@@ -612,16 +612,37 @@ std::vector<std::vector<int>> combinations(std::vector<int> C, int n){
   return cartesianProduct(sets);
 }
 
+Eigen::MatrixXi vv2matrix(std::vector<std::vector<int>> U, size_t nrow, size_t ncol){
+  Eigen::MatrixXi out(nrow,ncol);
+  for(size_t i=0; i<nrow; i++){
+    for(size_t j=0; j<ncol; j++){
+      out(i,j) = U[j][i];
+    }
+  }
+  return out;
+}
+
+size_t spow(size_t base, size_t exp){
+  size_t result = 1;
+  while(exp){
+    if(exp & 1)
+      result *= base;
+    exp >>= 1;
+    base *= base;
+  }
+  return result;
+}
+
 // [[Rcpp::export]]
-Rcpp::List gfimm_(Rcpp::NumericVector L, Rcpp::NumericVector U, 
+Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U, 
                   Eigen::MatrixXd FE, Eigen::MatrixXd RE, 
                   Eigen::MatrixXi RE2, Rcpp::IntegerVector E,
                   size_t N, size_t thresh){
   const size_t n = L.size();
-  size_t fe = FE.cols();
+  const size_t fe = FE.cols();
   const size_t re = RE2.cols();
-  size_t Dim = fe+re;
-  Rcpp::IntegerVector Esum = Rcpp::cumsum(E);
+  const size_t Dim = fe+re;
+  const Rcpp::IntegerVector Esum = Rcpp::cumsum(E);
   
   //-------- SET-UP ALGORITHM OBJECTS ------------------------------------------
   std::vector<Eigen::MatrixXd> Z(re);
@@ -630,7 +651,7 @@ Rcpp::List gfimm_(Rcpp::NumericVector L, Rcpp::NumericVector U,
   std::vector<size_t> VC(N); // Number of vertices
   std::vector<Eigen::MatrixXi> CC(N); // constraints 
   std::vector<int> C; // initial constraints 
-  std::vector<int> K;
+  std::vector<int> K; // complement of C
   std::vector<Eigen::MatrixXd> VT(N); // vertices
     
   //-------- SAMPLE ALL Z's / SET-UP WEIGHTS -----------------------------------
@@ -668,11 +689,22 @@ Rcpp::List gfimm_(Rcpp::NumericVector L, Rcpp::NumericVector U,
   }
 
   std::vector<int> K_start = C;
-  // Z[re-1] ...
+  for(size_t i=0; i<n-Dim; i++){
+    for(size_t j=0; j<N; j++){
+      Z[re-1](K[i],j) = 0;
+    }
+  }
   
   //-------- FIND INITIAL VERTICES ---------------------------------------------
   std::vector<std::vector<int>> USE = combinations(C,n);
-
-  return Rcpp::List::create(Rcpp::Named("VERTEX") = USE,
-                            Rcpp::Named("WEIGHT") = AT);
+  size_t twoPowerDim = spow(2, Dim);
+  Eigen::MatrixXi tUSE = vv2matrix(USE, Dim, twoPowerDim);
+  // me semble pas nécessaire de faire CC <- rep(list(t(USE)))
+  Eigen::VectorXd b(2*n);
+  b << U, -L;
+  Eigen::MatrixXd FEFE(2*n,fe);
+  FEFE << FE,-FE;
+  
+  return Rcpp::List::create(Rcpp::Named("VERTEX") = tUSE,
+                            Rcpp::Named("WEIGHT") = b);
 }
