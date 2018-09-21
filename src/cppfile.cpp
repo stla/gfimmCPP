@@ -672,9 +672,10 @@ std::vector<double> Vcumsum(Eigen::VectorXd vec){
 std::random_device rd;
 std::mt19937 g(rd());
 
-std::vector<size_t> zero2n(size_t n){
-  std::vector<size_t> out(n);
-  for(size_t i=0; i<n; i++){
+template <class T>
+std::vector<T> zero2n(T n){
+  std::vector<T> out(n);
+  for(T i=0; i<n; i++){
     out[i] = i;
   }
   return out;
@@ -745,6 +746,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
   }
 
   std::vector<int> K_start = C;
+  Eigen::VectorXi CVec = Eigen::Map<Eigen::VectorXi, Eigen::Unaligned>(C.data(), Dim);
   for(size_t i=0; i<n-Dim; i++){
     for(size_t j=0; j<N; j++){
       Z[re-1](K[i],j) = 0;
@@ -851,10 +853,20 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
           }
           N_sons[j] = N_sons[j]+1; 
         }
-        Eigen::VectorXi zero2k = Eigen::VectorXi::LinSpaced(1, 0, k-1);
+        std::vector<int> zero2k_ = zero2n<int>(k);
+        Eigen::VectorXi zero2k = Eigen::Map<Eigen::VectorXi, Eigen::Unaligned>(zero2k_.data(), k);
+        // Eigen::VectorXi zero2k = Eigen::VectorXi::LinSpaced(k, 0, k-1);
+        // std::cout << zero2k << std::endl;
         Eigen::VectorXi JJ0(k+Dim);
-        JJ0 << zero2k, C;
+        JJ0 << zero2k, CVec;
+//        std::cout << JJ0 << std::endl;
         Eigen::VectorXi JJ = cppunique(JJ0);
+//        std::cout << JJ << std::endl;
+//        std::cout << "_" << std::endl;
+        Eigen::MatrixXd REJJ(JJ.size(),re);
+        for(size_t jj=0; jj<JJ.size(); jj++){
+          REJJ.row(jj) = RE.row(JJ(jj));
+        }
         std::vector<Eigen::MatrixXd> ZZ(re);
         std::vector<size_t> VCVC(N,0);
         std::vector<Eigen::MatrixXi> CCCC(N);
@@ -881,7 +893,31 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
               for(size_t j=0; j<re; j++){
                 size_t kk = ord[j];
                 for(size_t ii=0; ii<copy; ii++){
-                  Eigen::MatrixXd XX(n, 99);
+                  // Eigen::MatrixXd XX0(n, 0);
+                  Eigen::MatrixXd XX(JJ.size(), 0);
+                  for(size_t jj=0; jj<re; jj++){
+                    if(jj != kk){
+                      // XX0.conservativeResize(Eigen::NoChange, XX0.cols()+1);
+                      XX.conservativeResize(Eigen::NoChange, XX.cols()+1);
+                      // XX0.rightCols(1) = RE.block(0, Esum(jj)-E(jj), n, E(jj)) *
+                      //   Ztemp[jj].col(ii);
+                      XX.rightCols(1) = REJJ.block(0, Esum(jj)-E(jj), JJ.size(), E(jj)) *
+                        Ztemp[jj].col(ii);
+                    }
+                  }
+                  //Eigen::MatrixXd XX(JJ.size(),re-1);
+                  Eigen::VectorXi v(JJ.size());
+                  for(int jj=0; jj<JJ.size(); jj++){
+                    //XX.row(jj) = XX0.row(JJ(jj));
+                    v(jj) = RE2(JJ(jj),kk);
+                  }
+                  Eigen::VectorXi vv = cppunique(v);
+                  Eigen::VectorXd Z1(vv.size());
+                  for(int jj=0; jj<vv.size(); jj++){
+                    Z1(jj) = Ztemp[kk](vv(jj),ii); 
+                  }
+                  Eigen::MatrixXd CO2 = REJJ.block(0, Esum(kk)-E(kk), JJ.size(), E(kk));
+
                 }
               }
             }
