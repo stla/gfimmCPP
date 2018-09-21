@@ -170,7 +170,7 @@ Rcpp::List fidVertex(Eigen::MatrixXd VT1, Eigen::MatrixXi CC1,
                           size_t Dim, int n, int k){
   size_t p = VTsum.size();
   std::vector<size_t> whichl, checkl, whichu, checku, both;
-  for(size_t i=0; i<VTsum.size(); i++){
+  for(size_t i=0; i<(size_t)VTsum.size(); i++){
     bool b = false;
     if(VTsum(i) >= L){
       whichl.push_back(i);
@@ -238,7 +238,7 @@ Rcpp::List fidVertex(Eigen::MatrixXd VT1, Eigen::MatrixXi CC1,
         for(size_t i=0; i<Dim; i++){
           colSum += INT2(i,j);
         }
-        if(colSum == Dim-1){
+        if(colSum == (int)Dim-1){
           vert += 1;
           // std::vector<int> which1;
           // for(size_t i=0; i<Dim; i++){
@@ -332,7 +332,7 @@ Rcpp::List fidVertex(Eigen::MatrixXd VT1, Eigen::MatrixXi CC1,
         for(size_t i=0; i<Dim; i++){
           colSum += INT2(i,j);
         }
-        if(colSum == Dim-1){
+        if(colSum == (int)Dim-1){
           vert += 1;
           std::vector<int> inter(Dim);
           size_t m = 0;
@@ -864,7 +864,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
 //        std::cout << JJ << std::endl;
 //        std::cout << "_" << std::endl;
         Eigen::MatrixXd REJJ(JJ.size(),re);
-        for(size_t jj=0; jj<JJ.size(); jj++){
+        for(int jj=0; jj<JJ.size(); jj++){
           REJJ.row(jj) = RE.row(JJ(jj));
         }
         std::vector<Eigen::MatrixXd> ZZ(re);
@@ -912,12 +912,46 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
                     v(jj) = RE2(JJ(jj),kk);
                   }
                   Eigen::VectorXi vv = cppunique(v);
-                  Eigen::VectorXd Z1(vv.size());
+                  Eigen::VectorXd Z1_(vv.size());
                   for(int jj=0; jj<vv.size(); jj++){
-                    Z1(jj) = Ztemp[kk](vv(jj),ii); 
+                    Z1_(jj) = Ztemp[kk](vv(jj),ii); 
                   }
-                  Eigen::MatrixXd CO2 = REJJ.block(0, Esum(kk)-E(kk), JJ.size(), E(kk));
-
+                  Eigen::MatrixXd CO2_ = REJJ.block(0, Esum(kk)-E(kk), JJ.size(), E(kk));
+                  std::vector<double> colsumsCO2(E(kk));
+                  std::vector<int> pcolsums;
+                  for(int jj=0; jj<E(kk); jj++){
+                    double colsum = Vsum(CO2_.col(jj));
+                    if(colsum > 0){
+                      pcolsums.push_back(jj);
+                    }
+                  }
+                  Eigen::MatrixXd CO2(JJ.size(), pcolsums.size());
+                  for(size_t jj=0; jj<pcolsums.size(); jj++){
+                    CO2.col(jj) = CO2_.col(pcolsums[jj]);
+                  }
+                  std::vector<int> Z00;
+                  for(int jj=0; jj<Z1_.size(); jj++){
+                    if(Z1_(jj) != 0){
+                      Z00.push_back(jj);
+                    }
+                  }
+                  Eigen::VectorXd Z1(Z00.size());
+                  for(size_t jj=0; jj<Z00.size(); jj++){
+                    Z1(jj) = Z1_(Z00[jj]);
+                  }
+                  if(fe>0){
+                    Eigen::MatrixXd FEJJ(JJ.size(),fe);
+                    for(int jj=0; jj<JJ.size(); jj++){
+                      FEJJ.row(jj) = FE.row(JJ(jj));
+                    }
+                    XX.conservativeResize(Eigen::NoChange, Dim-1);
+                    for(size_t jj=0; jj<fe; j++){
+                      XX.col(re-1+jj) = FEJJ.col(jj);
+                    }
+                  }
+                  Eigen::MatrixXd MAT(JJ.size(),((int)Dim)-1+CO2.cols());
+                  MAT << -XX, CO2;
+                  
                 }
               }
             }
