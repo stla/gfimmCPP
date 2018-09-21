@@ -644,13 +644,23 @@ Eigen::VectorXd Vsort(Eigen::VectorXd V){
   return V;
 }
 
+double Vproduct(Eigen::VectorXd vec){
+  double prod = 1;
+  for (int i=0; i<vec.size(); i++) {
+    prod *= vec(i);
+  }
+  return prod;
+}
+
+
 // [[Rcpp::export]]
 Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U, 
                   Eigen::MatrixXd FE, Eigen::MatrixXd RE, 
                   Eigen::MatrixXi RE2, Rcpp::IntegerVector E,
                   size_t N, size_t thresh){
+  Eigen::VectorXd WT(N); // output:weights
   const size_t n = L.size();
-  const size_t fe = FE.cols();
+  const size_t fe = FE.cols(); // si FE=NULL, passer une matrice n x 0
   const size_t re = RE2.cols();
   const size_t Dim = fe+re;
   const Rcpp::IntegerVector Esum = Rcpp::cumsum(E);
@@ -664,7 +674,8 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
   std::vector<int> C; // initial constraints 
   std::vector<int> K; // complement of C
   std::vector<Eigen::MatrixXd> VT(N); // vertices
-    
+  std::vector<Eigen::MatrixXd> VT0(N); // vertices
+  
   //-------- SAMPLE ALL Z's / SET-UP WEIGHTS -----------------------------------
   std::vector<Eigen::MatrixXd> A(N);
   for(size_t j=0; j<re; j++){  
@@ -732,7 +743,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
       }  
       V.col(i) = solve(AAuse, buse);
     }
-    VT[k] = V;
+    VT0[k] = V;
   }
   VectorXs VC(N);
   VC.fill(twoPowerDim);
@@ -763,14 +774,36 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
         }
       }
       for(size_t i=0; i<N; i++){
-        Eigen::MatrixXd VTi = VT[i];
+        Eigen::MatrixXd VTi = VT0[i];
         Eigen::MatrixXd VT1 = VTi.topRows(Dim-1);
         Eigen::VectorXd VT2 = VTi.row(Dim-1);
-        
+        Eigen::VectorXd Z1t(re);
+        for(size_t j=0; j<re-1; j++){
+          Z1t(j) = Z[j](RE2(k,j),i);
+        }
+        Eigen::VectorXd Z1(Dim-1);
+        Z1 << FE.row(k), Z1t;
+        Eigen::VectorXd VTsum = VT1.transpose() * Z1;
+        Rcpp::List sample = fidSample(VT2, VTsum, L(k), U(k));
+        double ZZ = sample["ZZ"];
+        double wt = sample["wt"];
+        Z[re-1](k,i) = ZZ;
+        weight[re-1](k,i) = wt;
+        VTsum += ZZ * VT2;
+        Rcpp::List vertex = fidVertex(VTi, tUSE, VTsum, L(k), U(k), Dim, (int)n, k);
+        VC(i) = vertex["vert"];
+        // CC[i].resize(Dim, VC(i));
+        CC[i] = vertex["CCtemp"];
+        // VT[i].resize(Dim, VC(i));
+        VT[i] = vertex["VTtemp"];
       }
+      for(size_t j=0; j<N; j++){
+        WT(j) = Vproduct(weight[re-1].col(j));
+      }
+      
     }
   }
   
-  return Rcpp::List::create(Rcpp::Named("VERTEX") = K1,
-                            Rcpp::Named("WEIGHT") = KV);
+  return Rcpp::List::create(Rcpp::Named("VERTEX") = weight,
+                            Rcpp::Named("WEIGHT") = WT);
 }
