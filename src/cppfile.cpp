@@ -14,6 +14,7 @@
 
 typedef Eigen::Matrix<long double, Eigen::Dynamic, Eigen::Dynamic> MatrixXl;
 typedef Eigen::Matrix<long double, Eigen::Dynamic, 1> VectorXl;
+typedef Eigen::Matrix<size_t, Eigen::Dynamic, 1> VectorXs;
 
 // [[Rcpp::export]]
 Eigen::VectorXd llinsolve(const Eigen::MatrixXd & A, const Eigen::VectorXd & b){
@@ -22,6 +23,10 @@ Eigen::VectorXd llinsolve(const Eigen::MatrixXd & A, const Eigen::VectorXd & b){
   VectorXl xx = aa.colPivHouseholderQr().solve(bb);
   Eigen::VectorXd x = xx.cast<double>();
   return x;
+} 
+
+Eigen::VectorXd solve(const Eigen::MatrixXd & A, const Eigen::VectorXd & b){
+  return A.colPivHouseholderQr().solve(b);
 } 
 
 // [[Rcpp::export]]
@@ -704,7 +709,29 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
   b << U, -L;
   Eigen::MatrixXd FEFE(2*n,fe);
   FEFE << FE,-FE;
-  
-  return Rcpp::List::create(Rcpp::Named("VERTEX") = tUSE,
+  for(size_t k=0; k<N; k++){
+    Eigen::MatrixXd V(Dim, twoPowerDim);
+    Eigen::MatrixXd AkAk(2*n,re);
+    AkAk << A[k], -A[k];
+    Eigen::MatrixXd AA(2*n,Dim);
+    AA << FEFE,AkAk;
+    for(size_t i=0; i<twoPowerDim; i++){
+      Eigen::MatrixXd AAuse(Dim,Dim);
+      Eigen::VectorXd buse(Dim);
+      for(size_t j=0; j<Dim; j++){
+        buse(j) = b(USE[i][j]);
+        for(size_t l=0; l<Dim; l++){
+          AAuse(j,l) = AA(USE[i][j],l);
+        }
+      }  
+      V.col(i) = solve(AAuse, buse);
+    }
+    VT[k] = V;
+  }
+  VectorXs VC(N);
+  VC.fill(twoPowerDim);
+
+  //-------- MAIN ALGORITHM ----------------------------------------------------
+  return Rcpp::List::create(Rcpp::Named("VERTEX") = VT,
                             Rcpp::Named("WEIGHT") = b);
 }
