@@ -3,6 +3,7 @@
 // we only include RcppEigen.h which pulls Rcpp.h in for us
 #include <RcppEigen.h>
 #include <random>
+//#include <chrono>
 #include <vector>
 #include <limits>
 #include <algorithm>    // std::max
@@ -106,7 +107,13 @@ int main(){
   return 0;
 }
 
-std::default_random_engine generator;
+//unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+std::default_random_engine generator; // (seed);
+//generator.seed(666);
+// std::random_device rd;
+// std::mt19937 generator(rd());
+// std::mt19937 generator;
+
 std::normal_distribution<double> distribution(0.0,1.0);
 
 Eigen::MatrixXd gmatrix(size_t nrows, size_t ncols){
@@ -590,7 +597,7 @@ Eigen::VectorXi cppunique(Eigen::VectorXi v){
       }
     }
   }
-  Eigen::VectorXi out = v.topRows(size);
+  Eigen::VectorXi out = v.head(size);
   return out;
 } 
 
@@ -669,8 +676,8 @@ std::vector<double> Vcumsum(Eigen::VectorXd vec){
   return out;
 }
 
-std::random_device rd;
-std::mt19937 g(rd());
+// std::random_device rd;
+// std::mt19937 g(rd());
 
 template <class T>
 std::vector<T> zero2n(T n){
@@ -684,7 +691,7 @@ std::vector<T> zero2n(T n){
 // [[Rcpp::export]]
 std::vector<size_t> sample_int(size_t n){
   std::vector<size_t> elems = zero2n(n);
-  std::shuffle(elems.begin(), elems.end(), g);
+  std::shuffle(elems.begin(), elems.end(), generator);
   return elems;
 }
 
@@ -693,7 +700,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
                   Eigen::MatrixXd FE, Eigen::MatrixXd RE, 
                   Eigen::MatrixXi RE2, Rcpp::IntegerVector E,
                   size_t N, size_t thresh){
-  Eigen::VectorXd WT(N); // output:weights
+  Eigen::VectorXd WTnorm(N); // output:weights
   const size_t n = L.size();
   const size_t fe = FE.cols(); // si FE=NULL, passer une matrice n x 0
   const size_t re = RE2.cols();
@@ -812,7 +819,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
         Eigen::MatrixXd VTi = VT0[i];
         Eigen::MatrixXd VT1 = VTi.topRows(Dim-1);
         Eigen::VectorXd VT2 = VTi.row(Dim-1);
-        Eigen::VectorXd Z1t(re);
+        Eigen::VectorXd Z1t(re-1);
         for(size_t j=0; j<re-1; j++){
           Z1t(j) = Z[j](RE2(k,j),i);
         }
@@ -832,19 +839,23 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
         // VT[i].resize(Dim, VC(i));
         VT[i] = vertex["VTtemp"];
       }
+      Eigen::VectorXd WT(N);
       for(size_t j=0; j<N; j++){
         WT(j) = Vproduct(weight[re-1].col(j));
       }
       double WTsum = Vsum(WT);
-      Eigen::VectorXd WTnorm = WT/WTsum;
+      WTnorm = WT/WTsum;
       ESS(k) = 1/WTnorm.dot(WTnorm);
       if(ESS(k)<thresh && k < K[n-Dim-1]){
         std::vector<size_t> N_sons(N,0);
-        std::vector<double> dist = Vcumsum(WT);
+        std::vector<double> dist = Vcumsum(WTnorm);
         double aux = runif(generator);
+        
+        Rcpp::Rcout << "aux " << aux << std::endl;
+        
         std::vector<double> u(N);
         for(size_t i=0; i<N; i++){
-          u[i] = aux + ((double)i / (double)N);
+          u[i] = (aux + (double)i) / (double)N;
         }
         size_t j = 0; 
         for(size_t i=0; i<N; i++){
@@ -857,6 +868,9 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
         Eigen::VectorXi zero2k = Eigen::Map<Eigen::VectorXi, Eigen::Unaligned>(zero2k_.data(), k);
         // Eigen::VectorXi zero2k = Eigen::VectorXi::LinSpaced(k, 0, k-1);
         // std::cout << zero2k << std::endl;
+
+        Rcpp::Rcout << "zero2k " << zero2k << std::endl;
+        
         Eigen::VectorXi JJ0(k+Dim);
         JJ0 << zero2k, CVec;
 //        std::cout << JJ0 << std::endl;
@@ -872,6 +886,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
         std::vector<Eigen::MatrixXi> CCCC(N);
         std::vector<Eigen::MatrixXd> VTVT(N);
         for(size_t i=0; i<N; i++){
+          Rcpp::Rcout << "N_sons[i] " << N_sons[i] << std::endl;
           if(N_sons[i]){
             std::vector<size_t> VCtemp(N_sons[i],VC[i]);
             std::vector<Eigen::MatrixXd> Ztemp(re);
@@ -884,6 +899,9 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
             // }
             for(size_t ii=0; ii<re; ii++){
               Ztemp[ii].resize(E(ii), N_sons[i]);
+              
+              //Rcpp::Rcout << "nrow Z[ii]" << Z[ii].rows() << std::endl;
+              
               for(size_t j=0; j<N_sons[i]; j++){
                 Ztemp[ii].col(j) = Z[ii].col(i);
               }
@@ -940,12 +958,16 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
                     Z1(jj) = Z1_(Z00[jj]);
                   }
                   if(fe>0){
-                    Eigen::MatrixXd FEJJ(JJ.size(),fe);
+                    Rcpp::Rcout << "JJ " << JJ << std::endl;
+                    Eigen::MatrixXd FEJJ(JJ.size(),fe); // fais-le dès que tu déf JJ
                     for(int jj=0; jj<JJ.size(); jj++){
                       FEJJ.row(jj) = FE.row(JJ(jj));
                     }
+                    Rcpp::Rcout << "ncol XX " << XX.cols() << std::endl;
+                    Rcpp::Rcout << "nrow XX " << XX.rows() << std::endl;
                     XX.conservativeResize(Eigen::NoChange, Dim-1);
-                    for(size_t jj=0; jj<fe; j++){
+                    Rcpp::Rcout << "ncol XX " << XX.cols() << std::endl;
+                    for(size_t jj=0; jj<fe; jj++){
                       XX.col(re-1+jj) = FEJJ.col(jj);
                     }
                   }
@@ -966,6 +988,6 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
     }
   }
   
-  return Rcpp::List::create(Rcpp::Named("VERTEX") = weight,
-                            Rcpp::Named("WEIGHT") = WT);
+  return Rcpp::List::create(Rcpp::Named("VERTEX") = WTnorm(0),
+                            Rcpp::Named("WEIGHT") = WTnorm(0));
 }
