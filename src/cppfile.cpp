@@ -639,6 +639,12 @@ size_t spow(size_t base, size_t exp){
 }
 
 // [[Rcpp::export]]
+Eigen::VectorXd Vsort(Eigen::VectorXd V){
+  std::sort(V.data(),V.data()+V.size());
+  return V;
+}
+
+// [[Rcpp::export]]
 Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U, 
                   Eigen::MatrixXd FE, Eigen::MatrixXd RE, 
                   Eigen::MatrixXi RE2, Rcpp::IntegerVector E,
@@ -653,7 +659,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
   std::vector<Eigen::MatrixXd> Z(re);
   std::vector<Eigen::MatrixXd> weight(re);
   Rcpp::IntegerVector ESS((int)N,(int)n);
-  std::vector<size_t> VC(N); // Number of vertices
+  //std::vector<size_t> VC(N); // Number of vertices
   std::vector<Eigen::MatrixXi> CC(N); // constraints 
   std::vector<int> C; // initial constraints 
   std::vector<int> K; // complement of C
@@ -732,6 +738,39 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
   VC.fill(twoPowerDim);
 
   //-------- MAIN ALGORITHM ----------------------------------------------------
-  return Rcpp::List::create(Rcpp::Named("VERTEX") = VT,
-                            Rcpp::Named("WEIGHT") = b);
+  //double break_point = 10;
+  double lengthK = (double)(n-Dim);
+  size_t K_n = (size_t)(ceil(lengthK/10.0));
+  std::vector<Eigen::VectorXi> K_temp(K_n);
+  Eigen::VectorXi KV = Eigen::Map<Eigen::VectorXi, Eigen::Unaligned>(K.data(), n-Dim);
+  for(size_t i=0; i<K_n-1; i++){
+    K_temp[i] = KV.segment(i*10, 10);
+  }
+  K_temp[K_n-1] = KV.tail(n-Dim-(K_n-1)*10);
+  Eigen::VectorXi K1(0);
+  for(size_t k_n=0; k_n<K_n; k_n++){
+    K1.conservativeResize(K1.size()+K_temp[k_n].size());
+    K1.tail(K_temp[k_n].size()) = K_temp[k_n];
+    for(int ki=0; ki<K_temp[k_n].size(); ki++){
+      int k = K_temp[k_n](ki);
+      if(k_n>0){
+        for(size_t i=0; i<re; i++){
+          if(E[i]>Z[i].rows()){ // je n'ai pas trouvé où Z[i].rows change
+            int nrowsZi = Z[i].rows();
+            Z[i].conservativeResize(E(i), Eigen::NoChange);
+            Z[i].bottomRows(E(i)-nrowsZi) = gmatrix(E(i)-nrowsZi, N);
+          }
+        }
+      }
+      for(size_t i=0; i<N; i++){
+        Eigen::MatrixXd VTi = VT[i];
+        Eigen::MatrixXd VT1 = VTi.topRows(Dim-1);
+        Eigen::VectorXd VT2 = VTi.row(Dim-1);
+        
+      }
+    }
+  }
+  
+  return Rcpp::List::create(Rcpp::Named("VERTEX") = K1,
+                            Rcpp::Named("WEIGHT") = KV);
 }
