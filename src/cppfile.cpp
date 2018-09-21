@@ -469,7 +469,7 @@ Rcpp::List fidSample(Eigen::VectorXd VT2, Eigen::VectorXd VTsum,
       i = 0;
       while(i < p && d2){
         if(SS[i] == 1){
-          d1 = false;
+          d2 = false;
         }
         i += 1;
       }
@@ -652,6 +652,40 @@ double Vproduct(Eigen::VectorXd vec){
   return prod;
 }
 
+double Vsum(Eigen::VectorXd vec){
+  double sum = 0;
+  for (int i=0; i<vec.size(); i++) {
+    sum += vec(i);
+  }
+  return sum;
+}
+
+std::vector<double> Vcumsum(Eigen::VectorXd vec){
+  std::vector<double> out(vec.size());
+  out[0] = vec(0);
+  for(int i=1; i<vec.size(); i++) {
+    out[i] = out[i-1] + vec(i);
+  }
+  return out;
+}
+
+std::random_device rd;
+std::mt19937 g(rd());
+
+std::vector<size_t> zero2n(size_t n){
+  std::vector<size_t> out(n);
+  for(size_t i=0; i<n; i++){
+    out[i] = i;
+  }
+  return out;
+}
+
+// [[Rcpp::export]]
+std::vector<size_t> sample_int(size_t n){
+  std::vector<size_t> elems = zero2n(n);
+  std::shuffle(elems.begin(), elems.end(), g);
+  return elems;
+}
 
 // [[Rcpp::export]]
 Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U, 
@@ -668,7 +702,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
   //-------- SET-UP ALGORITHM OBJECTS ------------------------------------------
   std::vector<Eigen::MatrixXd> Z(re);
   std::vector<Eigen::MatrixXd> weight(re);
-  Rcpp::IntegerVector ESS((int)N,(int)n);
+  Rcpp::NumericVector ESS(n, (double)N);
   //std::vector<size_t> VC(N); // Number of vertices
   std::vector<Eigen::MatrixXi> CC(N); // constraints 
   std::vector<int> C; // initial constraints 
@@ -745,8 +779,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
     }
     VT0[k] = V;
   }
-  VectorXs VC(N);
-  VC.fill(twoPowerDim);
+  std::vector<size_t> VC(N, twoPowerDim);
 
   //-------- MAIN ALGORITHM ----------------------------------------------------
   //double break_point = 10;
@@ -791,7 +824,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
         weight[re-1](k,i) = wt;
         VTsum += ZZ * VT2;
         Rcpp::List vertex = fidVertex(VTi, tUSE, VTsum, L(k), U(k), Dim, (int)n, k);
-        VC(i) = vertex["vert"];
+        VC[i] = vertex["vert"];
         // CC[i].resize(Dim, VC(i));
         CC[i] = vertex["CCtemp"];
         // VT[i].resize(Dim, VC(i));
@@ -799,6 +832,65 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
       }
       for(size_t j=0; j<N; j++){
         WT(j) = Vproduct(weight[re-1].col(j));
+      }
+      double WTsum = Vsum(WT);
+      Eigen::VectorXd WTnorm = WT/WTsum;
+      ESS(k) = 1/WTnorm.dot(WTnorm);
+      if(ESS(k)<thresh && k < K[n-Dim-1]){
+        std::vector<size_t> N_sons(N,0);
+        std::vector<double> dist = Vcumsum(WT);
+        double aux = runif(generator);
+        std::vector<double> u(N);
+        for(size_t i=0; i<N; i++){
+          u[i] = aux + ((double)i / (double)N);
+        }
+        size_t j = 0; 
+        for(size_t i=0; i<N; i++){
+          while(u[i]>dist[j]){ 
+            j = j+1; 
+          }
+          N_sons[j] = N_sons[j]+1; 
+        }
+        Eigen::VectorXi zero2k = Eigen::VectorXi::LinSpaced(1, 0, k-1);
+        Eigen::VectorXi JJ0(k+Dim);
+        JJ0 << zero2k, C;
+        Eigen::VectorXi JJ = cppunique(JJ0);
+        std::vector<Eigen::MatrixXd> ZZ(re);
+        std::vector<size_t> VCVC(N,0);
+        std::vector<Eigen::MatrixXi> CCCC(N);
+        std::vector<Eigen::MatrixXd> VTVT(N);
+        for(size_t i=0; i<N; i++){
+          if(N_sons[i]){
+            std::vector<size_t> VCtemp(N_sons[i],VC[i]);
+            std::vector<Eigen::MatrixXd> Ztemp(re);
+            // std::vector<Eigen::MatrixXd> VTtemp(N_sons[i]);
+            size_t copy = N_sons[i]-1;
+            Eigen::MatrixXd VTi = VT[i];
+            std::vector<Eigen::MatrixXd> VTtemp(N_sons[i], VTi);
+            // for(size_t ii=0; ii<N_sons[i]; ii++){
+            //   VTtemp[ii].resize(Dim, VC[i]);
+            // }
+            for(size_t ii=0; ii<re; ii++){
+              Ztemp[ii].resize(E(ii), N_sons[i]);
+              for(size_t j=0; j<N_sons[i]; j++){
+                Ztemp[ii].col(j) = Z[ii].col(i);
+              }
+            }			
+            if(copy){
+              std::vector<size_t> ord = sample_int(re);
+              for(size_t j=0; j<re; j++){
+                size_t kk = ord[j];
+                for(size_t ii=0; ii<copy; ii++){
+                  Eigen::MatrixXd XX(n, 99);
+                }
+              }
+            }
+
+                            
+          }
+        }
+
+        weight[re-1] = Eigen::MatrixXd::Ones(E(re-1),N);
       }
       
     }
