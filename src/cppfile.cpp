@@ -646,7 +646,7 @@ size_t spow(size_t base, size_t exp){
 }
 
 // [[Rcpp::export]]
-Eigen::VectorXd Vsort(Eigen::VectorXd V){
+Eigen::VectorXi Vsort(Eigen::VectorXi V){
   std::sort(V.data(),V.data()+V.size());
   return V;
 }
@@ -761,8 +761,8 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
     }
   }
 
-  std::vector<int> K_start = C;
-  Eigen::VectorXi CVec = Eigen::Map<Eigen::VectorXi, Eigen::Unaligned>(C.data(), Dim);
+  Eigen::VectorXi K_start = 
+    Eigen::Map<Eigen::VectorXi, Eigen::Unaligned>(C.data(), Dim);
   for(size_t i=0; i<n-Dim; i++){
     for(size_t j=0; j<N; j++){
       Z[re-1](K[i],j) = 0;
@@ -894,7 +894,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
         //Rcpp::Rcout << "zero2k " << zero2k << std::endl;
         
         Eigen::VectorXi JJ0(k+1+Dim);
-        JJ0 << zero2k, CVec;
+        JJ0 << zero2k, K_start;
 //        std::cout << JJ0 << std::endl;
         Eigen::VectorXi JJ = cppunique(JJ0);
 //        std::cout << JJ << std::endl;
@@ -1097,7 +1097,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
             }
             Rcpp::Rcout << "end if(copy)" << std::endl;
             for(size_t ii=0; ii<re; ii++){
-              Rcpp::Rcout << "ZZ[ii].cols()=0 ? " << ZZ[ii].cols() <<std:endl;
+              Rcpp::Rcout << "ZZ[ii].cols()=0 ? " << ZZ[ii].cols() << std::endl;
               ZZ[ii].conservativeResize(Eigen::NoChange, ZZ[ii].cols()+(int)N_sons[i]);
               ZZ[ii].rightCols(N_sons[i]) = Ztemp[ii];
               // ZZ[[ii]] <- cbind(ZZ[[ii]], Ztemp[[ii]])
@@ -1124,11 +1124,62 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
         VT = VTVT;
         VC = VCVC;
         CC = CCCC;
-          
         weight[re-1] = Eigen::MatrixXd::Ones(E(re-1),N);
       }
-      
     }
+    
+    //------------determine signs ----------------------------------------------
+    Eigen::MatrixXi signs = Eigen::MatrixXi::Zero(re,N);
+    for(size_t i=0; i<N; i++){
+      Eigen::MatrixXd VTi = VT[i];
+      for(size_t j=0; j<re ; j++){
+        Eigen::VectorXd row = VTi.row(fe+j);
+        bool allpos = true;
+        size_t jj = 0;
+        while(jj<VC[i] && allpos){
+          allpos = row(jj) > 0;
+          jj += 1;
+        }
+        if(allpos){
+          signs(j,i) = 1;
+        }else{
+          bool allneg = true;
+          size_t jjj = 0;
+          while(jjj<VC[i] && allneg){
+            allneg = row(jjj) < 0;
+            jjj += 1;
+          }
+          if(allneg){
+            signs(j,i) = -1;
+          }
+        }
+      }
+    }
+    //--------FINAL RESAMPLE ---------------------------------------------------
+    std::vector<Eigen::MatrixXd> ZZ(re);
+    std::vector<Eigen::VectorXi> nn(re);
+    std::vector<int> lengths_nn(re);
+    std::vector<Eigen::MatrixXd> VTVT(N);
+    Eigen::VectorXi n1_(K1.size()+(int)Dim);
+    n1_ << K1,K_start;
+    Eigen::VectorXi n1 = Vsort(n1_);
+    for(size_t ii=0; ii<re; ii++){
+      Eigen::VectorXi vec(n1.size());
+      for(int jj=0; jj<n1.size(); jj++){
+        vec(jj) = RE2(n1(jj),ii);
+      }
+      nn[ii] = cppunique(vec);
+      lengths_nn[ii] = nn[ii].size();
+    }
+    
+    // for(i in 1L:N){
+    //   Ztemp <- vector("list", re)
+    //   VTtemp <- VT[[i]] 
+    //   for(ii in 1:re){
+    //     Ztemp[[ii]] <- Z[[ii]][nn[[ii]],i]  #copy Z
+    //   }
+      
+
   }
   
   return Rcpp::List::create(Rcpp::Named("VERTEX") = WTnorm(0),
