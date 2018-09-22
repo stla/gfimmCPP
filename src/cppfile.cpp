@@ -1171,14 +1171,103 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
       nn[ii] = cppunique(vec);
       lengths_nn[ii] = nn[ii].size();
     }
-    
-    // for(i in 1L:N){
-    //   Ztemp <- vector("list", re)
-    //   VTtemp <- VT[[i]] 
-    //   for(ii in 1:re){
-    //     Ztemp[[ii]] <- Z[[ii]][nn[[ii]],i]  #copy Z
-    //   }
+    for(size_t i=0; i<N; i++){
+      Eigen::MatrixXd VTtemp = VT[i];
+      std::vector<Eigen::VectorXd> Ztemp(re);
+      for(size_t ii=0; ii<re; ii++){
+        Ztemp[ii].resize(lengths_nn[ii]);
+        for(int iii=0; iii<lengths_nn[ii]; iii++){
+          Ztemp[ii](iii) = Z[ii](nn[ii](iii),i);
+        }
+      }
+      std::vector<size_t> ord = sample_int(re);
+      for(size_t j=0; j<re; j++){
+        size_t kk = ord[j];
+        Eigen::MatrixXd XX(n,0);
+        for(size_t jj=0; jj<re; jj++){
+          if(jj != kk){
+            XX.conservativeResize(Eigen::NoChange, XX.cols()+1);
+            Eigen::VectorXd newcol(n);
+            newcol = RE.block(0, Esum(jj)-E(jj), n, lengths_nn[jj]) * Ztemp[jj];
+            XX.rightCols(1) = newcol;
+          }
+        }
+        Eigen::VectorXd Z1 = Ztemp[kk];
+        Eigen::MatrixXd CO2 = RE.block(0, Esum(kk)-E(kk), n, lengths_nn[kk]);
+        Eigen::MatrixXd XXX(n, Dim-1);
+        if(fe>0){
+          XXX << FE,XX;
+        }else{
+          XXX = XX;
+        }
+        Eigen::MatrixXd MAT(n, Dim-1+lengths_nn[kk]);
+        MAT << -XXX,CO2;
+        Rcpp::List kern = nullSpace(MAT);
+        int rk = kern["rank"];
+        if(rk < MAT.cols()){
+          Eigen::MatrixXd NUL = kern["kernel"];
+          Eigen::MatrixXd n1 = NUL.topRows(NUL.rows()-CO2.cols());
+          Eigen::MatrixXd n2 = NUL.bottomRows(CO2.cols());
+          Rcpp::List QR = QRdecomp(n2);
+          Eigen::MatrixXd O2 = QR["Q"];
+          Eigen::MatrixXd R = QR["R"];
+          Eigen::MatrixXd O1 = tsolveAndMultiply(R, n1);
+          Eigen::VectorXd a(O2.cols());
+          a = O2.transpose() * Z1;
+          Eigen::VectorXd O2a(Z1.size()); 
+          O2a = O2 * a;
+          Eigen::VectorXd tau_(Z1.size());
+          tau_ = Z1 - O2a;
+          double b = sqrt(tau_.dot(tau_));
+          Eigen::VectorXd tau = tau_/b;
+          int rankO2 = O2.cols();
+          double bb = sqrt(rchisq(Z1.size()-rankO2));
+          double bbb = b/bb;
+          Eigen::VectorXd aa(rankO2);
+          for(int jj=0; jj<rankO2; jj++){
+            aa(jj) = distribution(generator);
+          }
+          Eigen::VectorXd O2aa(O2.rows());
+          O2aa = O2*aa;
+          Eigen::VectorXd bbtau(O2.rows());
+          bbtau = bb*tau;
+          //Eigen::VectorXd MM3(O2.rows());
+          Rcpp::Rcout << "length Ztemp[kk] " << Ztemp[kk].size() << std::endl;
+          Rcpp::Rcout << "= nrow O2 ? " << O2.rows() << std::endl;
+          Ztemp[kk] = O2aa + bbtau;
+          Eigen::VectorXd M2(O1.rows());
+          M2 = O1 * (bbb*aa - a);
+          for(size_t jj=0; jj<VC[i]; jj++){
+            for(size_t vert=0; vert<Dim; vert++){
+              if(vert < fe+kk){
+                VTtemp(vert,jj) -= VTtemp(fe+kk,jj) * M2(vert);
+              }else{
+                VTtemp(vert,jj) -= VTtemp(fe+kk,jj) * M2(vert-1);
+              }
+            }
+            VTtemp(fe+kk,jj) = bbb*VTtemp(fe+kk,jj);
+          }
+        }else{
+          double b = sqrt(Z1.dot(Z1));
+          Eigen::VectorXd tau = Z1/b;
+          double bb = sqrt(rchisq(Z1.size()));
+          Ztemp[kk] = bb*tau;
+          VTtemp.block(fe+kk,0,1,VC[i]) *= b/bb;
+        }
+      }
+      for(size_t ii=0; ii<re; ii++){
+        Rcpp::Rcout << "(resampling) ZZ[ii].cols()=0 ? " << ZZ[ii].cols() << std::endl;
+        ZZ[ii].conservativeResize(Eigen::NoChange, ZZ[ii].cols()+1);
+        ZZ[ii].rightCols(1) = Ztemp[ii];
+      }
+      VTVT[i] = VTtemp;
+    }
+    Z = ZZ; 
+    VT = VTVT;
+    //---------flip negatives --------------------------------------------------			
       
+    
+     
 
   }
   
