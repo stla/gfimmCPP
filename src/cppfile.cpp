@@ -852,18 +852,21 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
     K_temp[i] = KV.segment(i*10, 10);
   }
   K_temp[K_n-1] = KV.tail(n-Dim-(K_n-1)*10);
+  // Rcpp::Rcout << K_temp[K_n-2] << std::endl;
+  // Rcpp::Rcout << "_" << std::endl;
+  // Rcpp::Rcout << K_temp[K_n-1] << std::endl;
   Eigen::VectorXi K1(0);
   for(size_t k_n=0; k_n<K_n; k_n++){
-    Rcpp::Rcout << "k_n " << k_n << std::endl;
+    //Rcpp::Rcout << "k_n " << k_n << std::endl;
     K1.conservativeResize(K1.size()+K_temp[k_n].size());
     K1.tail(K_temp[k_n].size()) = K_temp[k_n];
     for(int ki=0; ki<K_temp[k_n].size(); ki++){
       int k = K_temp[k_n](ki);
-      Rcpp::Rcout << "k " << k << std::endl;
+      //Rcpp::Rcout << "k " << k << std::endl;
       if(k_n>0){
         for(size_t i=0; i<re; i++){
           if(E[i]>Z[i].rows()){ // je n'ai pas trouvé où Z[i].rows change
-            Rcpp::Rcout << "E[i]>Z[i].rows" << std::endl;
+            //Rcpp::Rcout << "E[i]>Z[i].rows" << std::endl;
             int nrowsZi = Z[i].rows();
             Z[i].conservativeResize(E(i), Eigen::NoChange);
             Z[i].bottomRows(E(i)-nrowsZi) = gmatrix(E(i)-nrowsZi, N);
@@ -872,30 +875,31 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
       }
       for(size_t i=0; i<N; i++){
         Eigen::MatrixXd VTi = VT[i]; //VT0[i];
-        Rcpp::Rcout << "VTi ok" << std::endl;
+        //Rcpp::Rcout << "VTi ok" << std::endl;
         Eigen::MatrixXd VT1 = VTi.topRows(Dim-1);
         Eigen::VectorXd VT2 = VTi.row(Dim-1);
         Eigen::VectorXd Z1t(re-1);
         for(size_t j=0; j<re-1; j++){
-          Rcpp::Rcout << "RE2(k,j)" << RE2(k,j) << std::endl;
-          Rcpp::Rcout << "nrow Z[j] " << Z[j].rows() << std::endl;
-          Rcpp::Rcout << "ncol Z[j] " << Z[j].cols() << std::endl;
+          //Rcpp::Rcout << "RE2(k,j)" << RE2(k,j) << std::endl;
+          //Rcpp::Rcout << "nrow Z[j] " << Z[j].rows() << std::endl;
+          //Rcpp::Rcout << "ncol Z[j] " << Z[j].cols() << std::endl;
           Z1t(j) = Z[j](RE2(k,j),i);
         }
-        Rcpp::Rcout << "Z1t ok" << std::endl;
+        //Rcpp::Rcout << "Z1t ok" << std::endl;
         Eigen::VectorXd Z1(Dim-1);
         Z1 << FE.row(k), Z1t;
         Eigen::VectorXd VTsum = VT1.transpose() * Z1;
-        Rcpp::Rcout << "run fidSample" << std::endl;
+        //Rcpp::Rcout << "run fidSample" << std::endl;
         Rcpp::List sample = fidSample(VT2, VTsum, L(k), U(k));
         double ZZ = sample["ZZ"];
         double wt = sample["wt"];
         Z[re-1](k,i) = ZZ;
         weight[re-1](k,i) = wt;
         VTsum += ZZ * VT2;
-        Rcpp::Rcout << "run fidVertex" << std::endl;
-        Rcpp::List vertex = fidVertex(VTi, CC[i], VTsum, L(k), U(k), Dim, (int)n, k);
-        Rcpp::Rcout << "vertex done" << std::endl;
+        //Rcpp::Rcout << "run fidVertex" << std::endl;
+        Rcpp::List vertex = 
+          fidVertex(VTi, CC[i], VTsum, L(k), U(k), Dim, (int)n, k);
+        //Rcpp::Rcout << "vertex done" << std::endl;
         VC[i] = vertex["vert"];
         // CC[i].resize(Dim, VC(i));
         CC[i] = vertex["CCtemp"];
@@ -910,13 +914,11 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
       WTnorm = WT/WTsum;
       ESS(k) = 1/WTnorm.dot(WTnorm);
       if(ESS(k)<thresh && k < K[n-Dim-1]){
-        Rcpp::Rcout << "ESS(k)<thresh" << std::endl;
+        //Rcpp::Rcout << "ESS(k)<thresh" << std::endl;
         std::vector<size_t> N_sons(N,0);
         std::vector<double> dist = Vcumsum(WTnorm);
         double aux = runif(generator);
-        
-        //Rcpp::Rcout << "aux " << aux << std::endl;
-        
+        ////Rcpp::Rcout << "aux " << aux << std::endl;
         std::vector<double> u(N);
         for(size_t i=0; i<N; i++){
           u[i] = (aux + (double)i) / (double)N;
@@ -930,11 +932,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
         }
         std::vector<int> zero2k_ = zero2n<int>(k+1); // ? k+1 non ?
         Eigen::VectorXi zero2k = Eigen::Map<Eigen::VectorXi, Eigen::Unaligned>(zero2k_.data(), k+1);
-        // Eigen::VectorXi zero2k = Eigen::VectorXi::LinSpaced(k, 0, k-1);
-        // std::cout << zero2k << std::endl;
-
-        //Rcpp::Rcout << "zero2k " << zero2k << std::endl;
-        
+        ////Rcpp::Rcout << "zero2k " << zero2k << std::endl;
         Eigen::VectorXi JJ0(k+1+Dim);
         JJ0 << zero2k, K_start;
 //        std::cout << JJ0 << std::endl;
@@ -959,7 +957,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
         std::vector<Eigen::MatrixXi> CCCC(N);
         std::vector<Eigen::MatrixXd> VTVT(N);
         for(size_t i=0; i<N; i++){
-          //Rcpp::Rcout << "N_sons[i] " << N_sons[i] << std::endl;
+          ////Rcpp::Rcout << "N_sons[i] " << N_sons[i] << std::endl;
           if(N_sons[i]){
             std::vector<size_t> VCtemp(N_sons[i],VC[i]);
             std::vector<Eigen::MatrixXd> Ztemp(re);
@@ -973,7 +971,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
             for(size_t ii=0; ii<re; ii++){
               Ztemp[ii].resize(E(ii), N_sons[i]);
               
-              //Rcpp::Rcout << "nrow Z[ii]" << Z[ii].rows() << std::endl;
+              ////Rcpp::Rcout << "nrow Z[ii]" << Z[ii].rows() << std::endl;
               
               for(size_t j=0; j<N_sons[i]; j++){
                 Ztemp[ii].col(j) = Z[ii].col(i);
@@ -1009,7 +1007,8 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
                   for(int jj=0; jj<vv.size(); jj++){
                     Z1_(jj) = Ztemp[kk](vv(jj),ii);
                   }
-                  Eigen::MatrixXd CO2_ = REJJ.block(0, Esum(kk)-E(kk), JJ.size(), E(kk));
+                  Eigen::MatrixXd CO2_ = 
+                    REJJ.block(0, Esum(kk)-E(kk), JJ.size(), E(kk));
                   std::vector<double> colsumsCO2(E(kk));
                   std::vector<int> pcolsums;
                   for(int jj=0; jj<E(kk); jj++){
@@ -1034,11 +1033,11 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
                   }
                   Eigen::MatrixXd XXX(JJ.size(), Dim-1);
                   if(fe>0){
-                    //Rcpp::Rcout << "JJ " << JJ << std::endl;
-                    // Rcpp::Rcout << "ncol XX " << XX.cols() << std::endl;
-                    // Rcpp::Rcout << "nrow XX " << XX.rows() << std::endl;
+                    ////Rcpp::Rcout << "JJ " << JJ << std::endl;
+                    // //Rcpp::Rcout << "ncol XX " << XX.cols() << std::endl;
+                    // //Rcpp::Rcout << "nrow XX " << XX.rows() << std::endl;
                     // XX.conservativeResize(Eigen::NoChange, Dim-1);
-                    // Rcpp::Rcout << "ncol XX " << XX.cols() << std::endl;
+                    // //Rcpp::Rcout << "ncol XX " << XX.cols() << std::endl;
                     // for(size_t jj=0; jj<fe; jj++){
                     //   XX.col(re-1+jj) = FEJJ.col(jj); // cbind(FE,XX) "normalement"
                     // }
@@ -1046,34 +1045,34 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
                   }else{
                     XXX = XX;
                   }
-                  // //Rcpp::Rcout << "XXX done" << std::endl;
+                  // ////Rcpp::Rcout << "XXX done" << std::endl;
                   Eigen::MatrixXd MAT(JJ.size(),((int)Dim)-1+CO2.cols());
                   MAT << -XXX, CO2;
-                  // //Rcpp::Rcout << "ok" << std::endl;
+                  // ////Rcpp::Rcout << "ok" << std::endl;
                   Rcpp::List kern = nullSpace(MAT);
-                  // //Rcpp::Rcout << "nullspace ok" << std::endl;
+                  // ////Rcpp::Rcout << "nullspace ok" << std::endl;
                   int rk = kern["rank"];
-                  Rcpp::Rcout << "rank " << rk << std::endl;
-                  // //Rcpp::Rcout << "ok0" << std::endl;
+                  //Rcpp::Rcout << "rank " << rk << std::endl;
+                  // ////Rcpp::Rcout << "ok0" << std::endl;
                   if(rk < MAT.cols()){
-                  //   //Rcpp::Rcout << "ok1" << std::endl;
+                  //   ////Rcpp::Rcout << "ok1" << std::endl;
                     Eigen::MatrixXd NUL = kern["kernel"];
-                    Rcpp::Rcout << "nrow NUL " << NUL.rows() << std::endl;
-                    Rcpp::Rcout << "ncol CO2 " << CO2.cols() << std::endl;
+                    //Rcpp::Rcout << "nrow NUL " << NUL.rows() << std::endl;
+                    //Rcpp::Rcout << "ncol CO2 " << CO2.cols() << std::endl;
                     Eigen::MatrixXd n1 = NUL.topRows(NUL.rows()-CO2.cols());
                     Eigen::MatrixXd n2 = NUL.bottomRows(CO2.cols());
-                    //Rcpp::Rcout << "ok2" << std::endl;
+                    ////Rcpp::Rcout << "ok2" << std::endl;
                     Rcpp::List QR = QRdecomp(n2);
-                    //Rcpp::Rcout << "ok3" << std::endl;
+                    ////Rcpp::Rcout << "ok3" << std::endl;
                     Eigen::MatrixXd O2 = QR["Q"];
                     Eigen::MatrixXd R = QR["R"];
                     Eigen::MatrixXd O1 = tsolveAndMultiply(R, n1);
-                    Rcpp::Rcout << "nrow O1 = Dim-1? " << O1.rows() << std::endl;
+                    //Rcpp::Rcout << "nrow O1 = Dim-1? " << O1.rows() << std::endl;
                     Eigen::VectorXd a(O2.cols());
                     a = O2.transpose() * Z1;
-                    Rcpp::Rcout << "ncol O2 " << O2.cols() << std::endl;
-                    Rcpp::Rcout << "size Z1 " << Z1.size() << std::endl;
-                    Rcpp::Rcout << "nrow O2 = size Z1 ? " << O2.rows() << std::endl;
+                    //Rcpp::Rcout << "ncol O2 " << O2.cols() << std::endl;
+                    //Rcpp::Rcout << "size Z1 " << Z1.size() << std::endl;
+                    //Rcpp::Rcout << "nrow O2 = size Z1 ? " << O2.rows() << std::endl;
                     Eigen::VectorXd O2a(Z1.size()); 
                     O2a = O2 * a;
                     Eigen::VectorXd tau_(Z1.size());
@@ -1094,11 +1093,11 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
                     Eigen::VectorXd MM3(O2.rows());
                     MM3 = O2aa + bbtau;
                   //   Eigen::VectorXd MM3 = O2*aa + bb*tau;
-                  //   Rcpp::Rcout << "nrow O2 " << O2.rows() << std::endl;
-                  //   Rcpp::Rcout << "size tau " << tau.size() << std::endl;
-                  //   //Rcpp::Rcout << "size Z00 " << Z00.size() << std::endl;
-                  //   Rcpp::Rcout << "nrow Ztemp " << Ztemp[kk].rows() << std::endl;
-                  //   Rcpp::Rcout << "size MM3 " << MM3.size() << std::endl;
+                  //   //Rcpp::Rcout << "nrow O2 " << O2.rows() << std::endl;
+                  //   //Rcpp::Rcout << "size tau " << tau.size() << std::endl;
+                  //   ////Rcpp::Rcout << "size Z00 " << Z00.size() << std::endl;
+                  //   //Rcpp::Rcout << "nrow Ztemp " << Ztemp[kk].rows() << std::endl;
+                  //   //Rcpp::Rcout << "size MM3 " << MM3.size() << std::endl;
                     for(size_t jj=0; jj<Z00.size(); jj++){
                       Ztemp[kk](Z00[jj],ii) = MM3(jj); // pkoi size Z00 ?
                     }
@@ -1110,7 +1109,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
                         if(vert < fe+kk){
                           VTtemp[ii](vert,jj) = VTtemp_ii(vert,jj) - 
                             VTtemp_ii(fe+kk,jj) * M2(vert);
-                        }else{
+                        }else if(vert > fe+kk){
                           VTtemp[ii](vert,jj) = VTtemp_ii(vert,jj) - 
                             VTtemp_ii(fe+kk,jj) * M2(vert-1);
                         }
@@ -1118,7 +1117,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
                       VTtemp[ii](fe+kk,jj) = bbb*VTtemp_ii(fe+kk,jj);
                     }
                   }else{
-                    Rcpp::Rcout << "else" << std::endl;
+                    //Rcpp::Rcout << "else" << std::endl;
                     double b = sqrt(Z1.dot(Z1));
                     Eigen::VectorXd tau = Z1/b;
                     double bb = sqrt(rchisq(Z1.size()));
@@ -1137,10 +1136,11 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
                 }
               }
             }
-            Rcpp::Rcout << "end if(copy)" << std::endl;
+            //Rcpp::Rcout << "end if(copy)" << std::endl;
             for(size_t ii=0; ii<re; ii++){
-              Rcpp::Rcout << "ZZ[ii].cols()=0 ? " << ZZ[ii].cols() << std::endl;
-              ZZ[ii].conservativeResize(Eigen::NoChange, ZZ[ii].cols()+(int)N_sons[i]);
+              //Rcpp::Rcout << "ZZ[ii].cols()=0 ? " << ZZ[ii].cols() << std::endl;
+              ZZ[ii].conservativeResize(Eigen::NoChange, 
+                                        ZZ[ii].cols()+(int)N_sons[i]);
               ZZ[ii].rightCols(N_sons[i]) = Ztemp[ii];
               // ZZ[[ii]] <- cbind(ZZ[[ii]], Ztemp[[ii]])
               // ZZ[ii] = Ztemp[ii]; // ?
@@ -1230,7 +1230,8 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
           if(jj != kk){
             XX.conservativeResize(Eigen::NoChange, XX.cols()+1);
             Eigen::VectorXd newcol(n);
-            newcol = RE.block(0, Esum(jj)-E(jj), n, lengths_nn[jj]) * Ztemp[jj];
+            newcol = RE.block(0, Esum(jj)-E(jj), n, 
+                              lengths_nn[jj]) * Ztemp[jj];
             XX.rightCols(1) = newcol;
           }
         }
@@ -1274,8 +1275,8 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
           Eigen::VectorXd bbtau(O2.rows());
           bbtau = bb*tau;
           //Eigen::VectorXd MM3(O2.rows());
-          Rcpp::Rcout << "length Ztemp[kk] " << Ztemp[kk].size() << std::endl;
-          Rcpp::Rcout << "= nrow O2 ? " << O2.rows() << std::endl;
+          //Rcpp::Rcout << "length Ztemp[kk] " << Ztemp[kk].size() << std::endl;
+          //Rcpp::Rcout << "= nrow O2 ? " << O2.rows() << std::endl;
           Ztemp[kk] = O2aa + bbtau;
           Eigen::VectorXd M2(O1.rows());
           M2 = O1 * (bbb*aa - a);
@@ -1283,7 +1284,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
             for(size_t vert=0; vert<Dim; vert++){
               if(vert < fe+kk){
                 VTtemp(vert,jj) -= VTtemp(fe+kk,jj) * M2(vert);
-              }else{
+              }else if(vert > fe+kk){
                 VTtemp(vert,jj) -= VTtemp(fe+kk,jj) * M2(vert-1);
               }
             }
@@ -1298,7 +1299,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
         }
       }
       for(size_t ii=0; ii<re; ii++){
-        Rcpp::Rcout << "(resampling) ZZ[ii].cols()=0 ? " << ZZ[ii].cols() << std::endl;
+        //Rcpp::Rcout << "(resampling) ZZ[ii].cols()=0 ? " << ZZ[ii].cols() << std::endl;
         ZZ[ii].conservativeResize(Eigen::NoChange, ZZ[ii].cols()+1);
         ZZ[ii].rightCols(1) = Ztemp[ii];
       }
@@ -1306,6 +1307,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
     }
     Z = ZZ; 
     VT = VTVT;
+    
     //---------flip negatives --------------------------------------------------			
     for(size_t i=0; i<N; i++){
       for(size_t j=0; j<re; j++){
@@ -1328,3 +1330,5 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
   return Rcpp::List::create(Rcpp::Named("VERTEX") = VERTEX,
                             Rcpp::Named("WEIGHT") = WTnorm);
 }
+
+// TODO: essaye fidVertex et fidSample dans gfimm - galère avec les 0-based... mais non
