@@ -903,7 +903,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
         for(size_t i=0; i<N; i++){
           //Rcpp::Rcout << "N_sons[i] " << N_sons[i] << std::endl;
           if(N_sons[i]){
-            std::vector<size_t> VCtemp(N_sons[i],VC[i]);
+            //std::vector<size_t> VCtemp(N_sons[i],VC[i]);
             std::vector<Eigen::MatrixXd> Ztemp(re);
             // std::vector<Eigen::MatrixXd> VTtemp(N_sons[i]);
             size_t copy = N_sons[i]-1;
@@ -1059,24 +1059,50 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
                       }
                       VTtemp[ii](fe+kk,jj) = bbb*VTtemp_ii(fe+kk,jj);
                     }
-                    // vert <- c(1L:Dim)[-(fe+kk)]
-                    //   VTtemp_ii <- VTtemp[[ii]]
-                    // for(jj in 1L:VC[i]){ #VC std::vector size_t
-                    //   VTtemp[[ii]][vert,jj] <- VTtemp_ii[vert,jj] - 
-                    //     VTtemp_ii[fe+kk,jj] * M2 
-                    //   VTtemp[[ii]][fe+kk,jj] <- VTtemp_ii[fe+kk,jj]*bbb
-                      
-                  }
+                  }else{
+                    Rcpp::Rcout << "else" << std::endl;
+                    double b = sqrt(Z1.dot(Z1));
+                    Eigen::VectorXd tau = Z1/b;
+                    double bb = sqrt(rchisq(Z1.size()));
+                    for(size_t jj=0; jj<Z00.size(); jj++){
+                      Ztemp[kk](Z00[jj],ii) = bb*tau(jj);
+                    }
+                    VTtemp[ii].block(fe+kk,0,1,VC[i]) *= b/bb;
+                    // b <- sqrt(crossprod(Z1)[1L]) 
+                    // tau <- Z1/b 
+                    // bb <- sqrt(rchisq(1L,length(Z1))) 
+                    // Ztemp[[kk]][Z00,ii] <- bb*tau 
+                    // VTtemp[[ii]][fe+kk,1L:VC[i]] <- 
+                    //   VTtemp[[ii]][fe+kk,1L:VC[i]]*b/bb
                     
-
+                  }
                 }
               }
             }
-
-                            
+            Rcpp::Rcout << "end if(copy)" << std::endl;
+            // for(size_t ii=0; ii<re; ii++){
+            //   //ZZ[ii].conservativeResize(Eigen::NoChange,  +Nsons[i]);
+            //   //ZZ[[ii]] <- cbind(ZZ[[ii]], Ztemp[[ii]])
+            //   ZZ[ii] = Ztemp[ii]; // ?
+            // }
+            size_t d = 0;
+            for(size_t ii=0; ii<i; ii++){
+              d += N_sons[ii];
+            }
+            size_t dd = d + N_sons[i];
+            for(size_t ii=d; ii<dd; ii++){
+              VCVC[ii] = VC[i];
+            }
+            // d <- sum(N_sons[seq_len(i-1L)])
+            // VCVC[(d+1L):sum(N_sons[1L:i])] <- VCtemp ? pas besoin de VCtemp ?
+            for(size_t kk=0; kk<N_sons[i]; kk++){ 
+              VTVT[kk+d] = VTtemp[kk];
+              CCCC[kk+d] = CC[i];
+            }
           }
         }
-
+        Z = ZZ;
+        
         weight[re-1] = Eigen::MatrixXd::Ones(E(re-1),N);
       }
       
