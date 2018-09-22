@@ -1316,7 +1316,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
       }
     }
 
-    if(k_n == K_n){ //if finished pick coordinates			
+    if(k_n == K_n-1){ //if finished pick coordinates			
       Eigen::MatrixXd unif = umatrix(Dim, N); 
       VERTEX = pickCoordinates(Dim, N, fe, VT, unif);
       //VERTEX <- VT_end 
