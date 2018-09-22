@@ -695,6 +695,15 @@ std::vector<size_t> sample_int(size_t n){
   return elems;
 }
 
+double rchisq(int df){
+  double out = 0;
+  for(int i=0; i<df; i++){
+    double toadd = distribution(generator);
+    out += toadd*toadd;
+  }
+  return out;
+}
+
 // [[Rcpp::export]]
 Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U, 
                   Eigen::MatrixXd FE, Eigen::MatrixXd RE, 
@@ -877,7 +886,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
         Eigen::VectorXi JJ = cppunique(JJ0);
 //        std::cout << JJ << std::endl;
 //        std::cout << "_" << std::endl;
-        Eigen::MatrixXd REJJ(JJ.size(),Esum(re-1)); // pas re colonnes !!!!!!!!!!
+        Eigen::MatrixXd REJJ(JJ.size(),Esum(re-1)); 
         for(int jj=0; jj<JJ.size(); jj++){
           REJJ.row(jj) = RE.row(JJ(jj));
         }
@@ -959,7 +968,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
                   }
                   Eigen::MatrixXd XXX(JJ.size(), Dim-1);
                   if(fe>0){
-                    Rcpp::Rcout << "JJ " << JJ << std::endl;
+                    //Rcpp::Rcout << "JJ " << JJ << std::endl;
                     Eigen::MatrixXd FEJJ(JJ.size(),fe); // fais-le dès que tu déf JJ
                     for(int jj=0; jj<JJ.size(); jj++){
                       FEJJ.row(jj) = FE.row(JJ(jj));
@@ -991,11 +1000,14 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
                     Rcpp::Rcout << "ok3" << std::endl;
                     Eigen::MatrixXd O2 = QR["Q"];
                     Eigen::MatrixXd R = QR["R"];
-                    // Eigen::MatrixXd O1 = tsolveAndMultiply(R, n1);
-                    // Eigen::VectorXd a = O2.transpose() * Z1;
-                    // Eigen::VectorXd tau_ = Z1 - (O2 * a);
-                    // double b = sqrt(tau_.dot(tau_));
-                    // Eigen::VectorXd tau = tau/b;
+                    Eigen::MatrixXd O1 = tsolveAndMultiply(R, n1);
+                    Eigen::VectorXd a = O2.transpose() * Z1;
+                    Eigen::VectorXd tau_ = Z1 - (O2 * a);
+                    double b = sqrt(tau_.dot(tau_));
+                    Eigen::VectorXd tau = tau/b;
+                    int rankO2 = O2.cols();
+                    double bb = sqrt(rchisq(((int)Z1.size())-rankO2));
+                    double bbb = b/bb;
 
                   }
                     
