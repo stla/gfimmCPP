@@ -877,7 +877,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
         Eigen::VectorXi JJ = cppunique(JJ0);
 //        std::cout << JJ << std::endl;
 //        std::cout << "_" << std::endl;
-        Eigen::MatrixXd REJJ(JJ.size(),re);
+        Eigen::MatrixXd REJJ(JJ.size(),Esum(re-1)); // pas re colonnes !!!!!!!!!!
         for(int jj=0; jj<JJ.size(); jj++){
           REJJ.row(jj) = RE.row(JJ(jj));
         }
@@ -957,24 +957,28 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
                   for(size_t jj=0; jj<Z00.size(); jj++){
                     Z1(jj) = Z1_(Z00[jj]);
                   }
+                  Eigen::MatrixXd XXX(JJ.size(), Dim-1);
                   if(fe>0){
                     Rcpp::Rcout << "JJ " << JJ << std::endl;
                     Eigen::MatrixXd FEJJ(JJ.size(),fe); // fais-le dès que tu déf JJ
                     for(int jj=0; jj<JJ.size(); jj++){
                       FEJJ.row(jj) = FE.row(JJ(jj));
                     }
-                    Rcpp::Rcout << "ncol XX " << XX.cols() << std::endl;
-                    Rcpp::Rcout << "nrow XX " << XX.rows() << std::endl;
-                    XX.conservativeResize(Eigen::NoChange, Dim-1);
-                    Rcpp::Rcout << "ncol XX " << XX.cols() << std::endl;
-                    for(size_t jj=0; jj<fe; jj++){
-                      XX.col(re-1+jj) = FEJJ.col(jj);
-                    }
+                    // Rcpp::Rcout << "ncol XX " << XX.cols() << std::endl;
+                    // Rcpp::Rcout << "nrow XX " << XX.rows() << std::endl;
+                    // XX.conservativeResize(Eigen::NoChange, Dim-1);
+                    // Rcpp::Rcout << "ncol XX " << XX.cols() << std::endl;
+                    // for(size_t jj=0; jj<fe; jj++){
+                    //   XX.col(re-1+jj) = FEJJ.col(jj); // cbind(FE,XX) "normalement"
+                    // }
+                    XXX << FEJJ, XX;
                   }
+                  Rcpp::Rcout << "XXX done" << std::endl;
                   Eigen::MatrixXd MAT(JJ.size(),((int)Dim)-1+CO2.cols());
-                  MAT << -XX, CO2;
+                  MAT << -XXX, CO2;
                   Rcpp::Rcout << "ok" << std::endl;
                   Rcpp::List kern = nullSpace(MAT);
+                  Rcpp::Rcout << "nullspace ok" << std::endl;
                   int rk = kern["rank"];
                   Rcpp::Rcout << "ok0" << std::endl;
                   if(rk < MAT.cols()){
