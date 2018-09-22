@@ -651,7 +651,7 @@ Eigen::VectorXi Vsort(Eigen::VectorXi V){
   return V;
 }
 
-double Vproduct(Eigen::VectorXd vec){
+double Vproduct(Eigen::VectorXd vec){ // mat.prod !
   double prod = 1;
   for (int i=0; i<vec.size(); i++) {
     prod *= vec(i);
@@ -659,7 +659,7 @@ double Vproduct(Eigen::VectorXd vec){
   return prod;
 }
 
-double Vsum(Eigen::VectorXd vec){
+double Vsum(Eigen::VectorXd vec){ // mat.sum !
   double sum = 0;
   for (int i=0; i<vec.size(); i++) {
     sum += vec(i);
@@ -704,6 +704,47 @@ double rchisq(int df){
   return out;
 }
 
+Eigen::MatrixXd umatrix(size_t nrows, size_t ncols){
+  Eigen::MatrixXd U(nrows,ncols);
+  for(size_t i=0; i<nrows; i++){
+    for(size_t j=0; j<ncols; j++){
+      U(i,j) = runif(generator);
+    }
+  }
+  return U;
+}
+
+Eigen::MatrixXd pickCoordinates(size_t Dim, size_t N, size_t fe, std::vector<Eigen::MatrixXd> VT, Eigen::MatrixXd U){
+  Eigen::MatrixXd VTend(Dim,N);
+  for(size_t i=0; i<N; i++){
+    Eigen::MatrixXd VTi = VT[i]; 
+    for(size_t j=0; j<Dim; j++){
+      if(U(j,i) < 0.5){
+        if(j < fe){
+          VTend(j,i) = VTi.row(j).minCoeff();
+        }else{
+          double x = VTi.row(j).minCoeff();
+          if(x < 0){
+            x = 0;
+          }
+          VTend(j,i) = x;
+        }
+      }else{
+        if(j < fe){
+          VTend(j,i) = VTi.row(j).maxCoeff();
+        }else{
+          double x = VTi.row(j).maxCoeff();
+          if(x < 0){
+            x = 0;
+          }
+          VTend(j,i) = x;
+        }
+      }
+    }
+  }
+  return VTend;
+}
+
 // [[Rcpp::export]]
 Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U, 
                   Eigen::MatrixXd FE, Eigen::MatrixXd RE, 
@@ -714,6 +755,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
   const size_t fe = FE.cols(); // si FE=NULL, passer une matrice n x 0
   const size_t re = RE2.cols();
   const size_t Dim = fe+re;
+  Eigen::MatrixXd VERTEX(Dim, N); // output
   const Rcpp::IntegerVector Esum = Rcpp::cumsum(E);
   
   //-------- SET-UP ALGORITHM OBJECTS ------------------------------------------
@@ -1265,12 +1307,24 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
     Z = ZZ; 
     VT = VTVT;
     //---------flip negatives --------------------------------------------------			
-      
-    
-     
+    for(size_t i=0; i<N; i++){
+      for(size_t j=0; j<re; j++){
+        if(signs(j,i) == -1){ //rq : les signs[j,i] = 1 ne servent à rien
+          VT[i].row(fe+j) *= -1;
+          Z[j].col(i) *= -1;
+        }
+      }
+    }
 
+    if(k_n == K_n){ //if finished pick coordinates			
+      Eigen::MatrixXd unif = umatrix(Dim, N); 
+      VERTEX = pickCoordinates(Dim, N, fe, VT, unif);
+      //VERTEX <- VT_end 
+      //WEIGHT <- WTnorm 
+    }
+      
   }
   
-  return Rcpp::List::create(Rcpp::Named("VERTEX") = WTnorm(0),
-                            Rcpp::Named("WEIGHT") = WTnorm(0));
+  return Rcpp::List::create(Rcpp::Named("VERTEX") = VERTEX,
+                            Rcpp::Named("WEIGHT") = WTnorm);
 }
