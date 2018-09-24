@@ -1,5 +1,5 @@
-L <- npk$yield
-U <- npk$yield + 0.1
+L <- npk$yield - 0.005
+U <- npk$yield + 0.005
 n <- nrow(npk)
 FE <- as.matrix(rep(1,n))
 RE <- data.frame(block = npk$block)
@@ -20,9 +20,16 @@ for(i in 1L:re){ # Builds an indicator RE matrix for the effects
     RE <- cbind(RE,temp2)
   }
 } 
-RE2 <- sapply(RE2, as.integer)
+RE2 <- sapply(RE2, function(x) as.integer(x)-1L)
 
-N <- 20L
-thresh <- N/2L
+N <- 3000L
+thresh <- N/2
 
-gfimm_(L, U, FE, RE, RE2, E, N, thresh)
+gg <- gfimm_(L, U, FE, RE, RE2, E, N, thresh)
+
+library(spatstat)
+f <- ewcdf(gg$VERTEX[1,], gg$WEIGHT)
+plot(f, xlim=c(40,65))
+
+f <- ewcdf(gg$VERTEX[3,], gg$WEIGHT)
+plot(f, xlim=c(0,10))

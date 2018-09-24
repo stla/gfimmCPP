@@ -4,7 +4,7 @@
 #include <RcppEigen.h>
 #include <random>
 //#include <chrono>
-#include <vector>
+//#include <vector>
 #include <limits>
 #include <algorithm>    // std::max
 
@@ -767,16 +767,19 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
   std::vector<int> C; // initial constraints 
   std::vector<int> K; // complement of C
   std::vector<Eigen::MatrixXd> VT(N); // vertices
-  std::vector<Eigen::MatrixXd> VT0(N); // vertices
+  //std::vector<Eigen::MatrixXd> VT0(N); // vertices
   
   //-------- SAMPLE ALL Z's / SET-UP WEIGHTS -----------------------------------
   std::vector<Eigen::MatrixXd> A(N);
+  for(size_t k=0; k<N; k++){
+    A[k].resize(n,re);
+  }
   for(size_t j=0; j<re; j++){  
     Z[j] = gmatrix(E(j),N); 
     weight[j] = Eigen::MatrixXd::Ones(E(j),N);
     Eigen::MatrixXd M = RE.block(0, Esum(j)-E(j), n, E(j)) * Z[j];
     for(size_t k=0; k<N; k++){
-      A[k].resize(n,re);
+      //A[k].resize(n,re);
       for(size_t i=0; i<n; i++){
         A[k](i,j) = M(i,k);
       }
@@ -792,16 +795,19 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
     Eigen::MatrixXd Atemp(AT.rows()+1,Dim);
     Atemp << AT, AA.row(i);
     if(rankMatrix(Atemp) > r){
-      AT.conservativeResize(AT.rows()+1,Eigen::NoChange);
-      for(size_t j=0; j<Dim; j++){
-        AT(AT.rows()-1,j) = AA(i,j);
-      }
+      //AT.conservativeResize(AT.rows()+1,Eigen::NoChange);
+      //AT.row(AT.rows()-1) = AA.row(i);
+      AT = Atemp;
+      // for(size_t j=0; j<Dim; j++){
+      //   AT(AT.rows()-1,j) = AA(i,j);
+      // }
       r = rankMatrix(AT);
       C.push_back((int)i);
     }else{
       K.push_back((int)i);
     }
   }
+  //Rcpp::Rcout << C.size() << std::endl;
 
   Eigen::VectorXi K_start = 
     Eigen::Map<Eigen::VectorXi, Eigen::Unaligned>(C.data(), Dim);
@@ -815,6 +821,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
   std::vector<std::vector<int>> USE = combinations(C,n);
   size_t twoPowerDim = spow(2, Dim);
   Eigen::MatrixXi tUSE = vv2matrix(USE, Dim, twoPowerDim);
+  //Rcpp::Rcout << tUSE << std::endl;
   // me semble pas nécessaire de faire CC <- rep(list(t(USE))) si!
   std::vector<Eigen::MatrixXi> CC(N, tUSE);
   Eigen::VectorXd b(2*n);
@@ -847,7 +854,8 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
   double lengthK = (double)(n-Dim);
   size_t K_n = (size_t)(ceil(lengthK/10.0));
   std::vector<Eigen::VectorXi> K_temp(K_n);
-  Eigen::VectorXi KV = Eigen::Map<Eigen::VectorXi, Eigen::Unaligned>(K.data(), n-Dim);
+  Eigen::VectorXi KV = Eigen::Map<Eigen::VectorXi, 
+                                  Eigen::Unaligned>(K.data(), n-Dim);
   for(size_t i=0; i<K_n-1; i++){
     K_temp[i] = KV.segment(i*10, 10);
   }
@@ -898,7 +906,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
         VTsum += ZZ * VT2;
         //Rcpp::Rcout << "run fidVertex" << std::endl;
         Rcpp::List vertex = 
-          fidVertex(VTi, CC[i], VTsum, L(k), U(k), Dim, (int)n, k);
+          fidVertex(VTi, CC[i], VTsum, L(k), U(k), Dim, (int)n, k); // n-1 ? ça plante
         //Rcpp::Rcout << "vertex done" << std::endl;
         VC[i] = vertex["vert"];
         // CC[i].resize(Dim, VC(i));
@@ -912,7 +920,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
       }
       double WTsum = Vsum(WT);
       WTnorm = WT/WTsum;
-      ESS(k) = 1/WTnorm.dot(WTnorm);
+      ESS(k) = 1/(WTnorm.dot(WTnorm));
       if(ESS(k)<thresh && k < K[n-Dim-1]){
         //Rcpp::Rcout << "ESS(k)<thresh" << std::endl;
         std::vector<size_t> N_sons(N,0);
@@ -931,7 +939,8 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
           N_sons[j] = N_sons[j]+1; 
         }
         std::vector<int> zero2k_ = zero2n<int>(k+1); // ? k+1 non ?
-        Eigen::VectorXi zero2k = Eigen::Map<Eigen::VectorXi, Eigen::Unaligned>(zero2k_.data(), k+1);
+        Eigen::VectorXi zero2k = 
+          Eigen::Map<Eigen::VectorXi, Eigen::Unaligned>(zero2k_.data(), k+1);
         ////Rcpp::Rcout << "zero2k " << zero2k << std::endl;
         Eigen::VectorXi JJ0(k+1+Dim);
         JJ0 << zero2k, K_start;
@@ -970,9 +979,7 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
             // }
             for(size_t ii=0; ii<re; ii++){
               Ztemp[ii].resize(E(ii), N_sons[i]);
-              
               ////Rcpp::Rcout << "nrow Z[ii]" << Z[ii].rows() << std::endl;
-              
               for(size_t j=0; j<N_sons[i]; j++){
                 Ztemp[ii].col(j) = Z[ii].col(i);
               }
@@ -991,7 +998,8 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
                       // XX0.rightCols(1) = RE.block(0, Esum(jj)-E(jj), n, E(jj)) *
                       //   Ztemp[jj].col(ii);
                       Eigen::VectorXd newcol(JJ.size());
-                      newcol = REJJ.block(0, Esum(jj)-E(jj), JJ.size(), E(jj)) *
+                      newcol = 
+                        REJJ.block(0, Esum(jj)-E(jj), JJ.size(), E(jj)) *
                         Ztemp[jj].col(ii);
                       XX.rightCols(1) = newcol; 
                     }
@@ -1205,6 +1213,8 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
     Eigen::VectorXi n1_(K1.size()+(int)Dim);
     n1_ << K1,K_start;
     Eigen::VectorXi n1 = Vsort(n1_);
+    //Rcpp::Rcout << n1 << std::endl;
+    //Rcpp::Rcout << "_" << std::endl;
     for(size_t ii=0; ii<re; ii++){
       Eigen::VectorXi vec(n1.size());
       for(int jj=0; jj<n1.size(); jj++){
@@ -1218,6 +1228,9 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
       std::vector<Eigen::VectorXd> Ztemp(re);
       for(size_t ii=0; ii<re; ii++){
         Ztemp[ii].resize(lengths_nn[ii]);
+      }
+      for(size_t ii=0; ii<re; ii++){
+        // Ztemp[ii].resize(lengths_nn[ii]);
         for(int iii=0; iii<lengths_nn[ii]; iii++){
           Ztemp[ii](iii) = Z[ii](nn[ii](iii),i);
         }
@@ -1328,7 +1341,8 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
   }
   
   return Rcpp::List::create(Rcpp::Named("VERTEX") = VERTEX,
-                            Rcpp::Named("WEIGHT") = WTnorm);
+                            Rcpp::Named("WEIGHT") = WTnorm, 
+                            Rcpp::Named("ESS") = ESS);
 }
 
 // TODO: essaye fidVertex et fidSample dans gfimm - galère avec les 0-based... mais non
