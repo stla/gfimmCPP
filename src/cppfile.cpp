@@ -704,6 +704,7 @@ double rchisq(int df){
   return out;
 }
 
+// [[Rcpp::export]]
 Eigen::MatrixXd umatrix(size_t nrows, size_t ncols){
   Eigen::MatrixXd U(nrows,ncols);
   for(size_t i=0; i<nrows; i++){
@@ -1222,6 +1223,8 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
       }
       nn[ii] = cppunique(vec);
       lengths_nn[ii] = nn[ii].size();
+      
+      ZZ[ii].resize(lengths_nn[ii], 0);
     }
     for(size_t i=0; i<N; i++){
       Eigen::MatrixXd VTtemp = VT[i];
@@ -1318,7 +1321,12 @@ Rcpp::List gfimm_(Eigen::VectorXd L, Eigen::VectorXd U,
       }
       VTVT[i] = VTtemp;
     }
+    //Rcpp::Rcout << Z[0] << std::endl;
+    //Rcpp::Rcout << "_" << std::endl;
     Z = ZZ; 
+    // Rcpp::Rcout << ZZ[0] << std::endl;
+    // Rcpp::Rcout << "**" << std::endl;
+    // Rcpp::Rcout << Z[0] << std::endl;
     VT = VTVT;
     
     //---------flip negatives --------------------------------------------------			
